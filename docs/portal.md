@@ -109,9 +109,32 @@ when the game asks for one.
 - **The speaker**, through counter 2 of the timer, for its beeps. It sets only the count
   (`out 42h` twice), relying on the BIOS to have put the counter in its square-wave mode, and
   times the beep with `loop` delays.
-- **The joystick**, through port 201h, if asked for at the start (on the PCjr and Tandy 1000).
+- **The joystick**, through port 201h, if you say you have one at the start: see below.
 - **The model byte** at F000:FFFEh: FDh, a PCjr, is noted for later.
 - **`INT 1Ah`** function 00h, the tick count, as a random number.
+
+## The controls
+
+The manual, written for every version, says to move around "using your pointing device
+(joystick, mouse, etc.)". The PC version has no mouse: nothing in `PORTAL.EXE` calls the mouse
+driver's INT 33h, and it never draws a pointer. Wherever you are, one choice is highlighted, its
+colors reversed, and its name is shown across the top of the screen.
+
+Every choice goes through one routine that answers with a key's scan code, from the keyboard
+or from the joystick:
+
+- **From the keyboard**, it empties the BIOS's buffer and waits for a key: the arrows, 48h,
+  4Bh, 4Dh and 50h, move the highlight, and Space, 39h, chooses. Esc ends the game there and
+  then, back in text mode at the DOS prompt.
+- **From the joystick**, chosen at the start, it ignores the keyboard. It times the stick's
+  two axes through port 201h against a center it keeps, and when one axis is off center by at
+  least five counts more than the other, answers with the arrow for that way. Either button
+  answers Space. On a PCjr (model byte FDh) it weighs the two axes a little differently.
+
+So the joystick is four arrows and Space, with no position of its own. The highlight moves from
+choice to choice in an order the game sets for each screen. On the map of Worldnet's dataspaces
+it's a grid of three rows of four, Up and Down a row and Left and Right a place; inside a
+dataspace, Up and Down go through its choices, the icons along the bottom among them.
 
 ## The composite picture
 

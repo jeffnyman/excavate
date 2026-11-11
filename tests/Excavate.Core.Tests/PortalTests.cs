@@ -52,7 +52,8 @@ public sealed class PortalTests : IDisposable
 
     /// <summary>
     /// Types keys a second apart, as a person would: the game empties the keyboard's buffer
-    /// before each prompt, so keys typed while it draws are lost, as on the PC. Enter is '|'.
+    /// before each prompt, so keys typed while it draws are lost, as on the PC. Enter is '|',
+    /// and the arrows are '^', 'v', '&lt;' and '&gt;'.
     /// </summary>
     private static void Type(Machine machine, string text)
     {
@@ -62,6 +63,10 @@ public sealed class PortalTests : IDisposable
             {
                 '|' => 0x1C,
                 ' ' => 0x39,
+                '^' => 0x48,
+                'v' => 0x50,
+                '<' => 0x4B,
+                '>' => 0x4D,
                 >= 'A' and <= 'Z' => Letters[c - 'A'],
                 _ => throw new ArgumentException($"no key for '{c}'"),
             };
@@ -72,12 +77,7 @@ public sealed class PortalTests : IDisposable
         }
     }
 
-    private static int Colors(Machine machine)
-    {
-        var pixels = new uint[machine.DisplayWidth * machine.DisplayHeight];
-        machine.Render(pixels);
-        return pixels.Distinct().Count();
-    }
+    private static int Colors(Machine machine) => Picture(machine).Distinct().Count();
 
     [Fact]
     public void It_finds_its_protection_track_and_asks_who_you_are()
@@ -143,5 +143,40 @@ public sealed class PortalTests : IDisposable
 
         // its stripes, which a composite monitor shows as colors of their own
         Assert.True(Colors(machine) > 16, $"only {Colors(machine)} colors");
+    }
+
+    /// <summary>The picture, to tell one screen from another.</summary>
+    private static uint[] Picture(Machine machine)
+    {
+        var pixels = new uint[machine.DisplayWidth * machine.DisplayHeight];
+        machine.Render(pixels);
+        return pixels;
+    }
+
+    [Fact]
+    public void Its_arrow_keys_move_the_highlight_and_space_chooses()
+    {
+        if (Start() is not { } machine)
+        {
+            return;
+        }
+
+        machine.Run(machine.InstructionsPerSecond * 20);
+        Type(machine, "EXCAVATE|N");
+        machine.Run(machine.InstructionsPerSecond * 60);
+
+        // Space goes into Central Processing, and Down then moves the highlight on, each
+        // changing the picture: the joystick, chosen at the start, only sends these same keys
+        var map = Picture(machine);
+        Type(machine, " ");
+        machine.Run(machine.InstructionsPerSecond * 5);
+        var inside = Picture(machine);
+        Assert.NotEqual(map, inside);
+        Screenshot.WritePng(machine, Path.Combine(Shots, "portal-inside-central-processing.png"));
+
+        Type(machine, "v");
+        machine.Run(machine.InstructionsPerSecond * 5);
+        Assert.NotEqual(inside, Picture(machine));
+        Assert.False(machine.Exited);
     }
 }
