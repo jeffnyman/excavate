@@ -373,6 +373,27 @@ public sealed class DosTests : IDisposable
         Assert.Equal('a', machine.ExitCode);
     }
 
+    [Fact]
+    public void Polling_for_a_key_with_interrupts_off_still_gets_the_keyboards_interrupt()
+    {
+        // as Portal waits for a key:
+        //   cli; again: mov ah, 1; int 16h; jz again; mov ah, 0; int 16h; mov ah, 4Ch; int 21h
+        // IBM's BIOS turns interrupts on inside INT 16h, so the key comes in while it polls
+        File.WriteAllBytes(Path.Combine(_game, "TEST.EXE"), Exe(
+        [
+            0xFA, 0xB4, 0x01, 0xCD, 0x16, 0x74, 0xFA, 0xB4, 0x00, 0xCD, 0x16, 0xB4, 0x4C, 0xCD, 0x21,
+        ]));
+        var machine = new Machine(_game, _saves) { Log = _log.Add };
+        machine.Load("TEST.EXE");
+        machine.Run(100_000);
+        Assert.False(machine.Exited);
+
+        machine.PressKey(0x30); // B
+        machine.Run(100_000);
+        Assert.True(machine.Exited, string.Join('\n', _log));
+        Assert.Equal('b', machine.ExitCode);
+    }
+
     private Machine Start(byte[] code, Action<Machine>? before = null)
     {
         File.WriteAllBytes(Path.Combine(_game, "TEST.EXE"), Exe(code));

@@ -43,6 +43,7 @@ public sealed partial class Machine : ICpuBus
 
     private const uint PageFrame = 0xE_0000;
     private const uint VideoMemory = 0xA_0000;
+    private const uint CgaMemory = 0xB_8000;
 
     private readonly byte[] _memory = new byte[MemorySize];
 
@@ -63,6 +64,9 @@ public sealed partial class Machine : ICpuBus
     private readonly InterruptController _pic2 = new(vectorBase: 0x70, mask: 0xEF);
     private readonly IntervalTimer _timer = new();
     private readonly Vga _vga = new();
+
+    // the CGA, for a machine built with one in place of the VGA
+    private readonly Cga? _cga;
     private readonly KeyboardController _keyboard = new();
     private readonly GamePort _gamePort = new();
 
@@ -80,8 +84,14 @@ public sealed partial class Machine : ICpuBus
     /// is only read: anything a program writes, saved games included, goes to the save folder,
     /// and files there take the place of the game folder's from then on.
     /// </summary>
-    public Machine(string gameFolder, string saveFolder)
+    /// <param name="gameFolder">The game's folder, drive C:.</param>
+    /// <param name="saveFolder">Where what the game writes goes.</param>
+    /// <param name="video">The display adapter: a VGA unless the game was written for another.</param>
+    public Machine(string gameFolder, string saveFolder, VideoAdapter video = VideoAdapter.Vga)
     {
+        _saveFolder = saveFolder;
+        Video = video;
+        _cga = video == VideoAdapter.Cga ? new Cga() : null;
         Cpu = new Intel386(this) { HostCall = HostCall, RepeatLimit = RepeatLimit };
         _pic = new InterruptController(second: _pic2);
         MapMemory();
@@ -92,6 +102,7 @@ public sealed partial class Machine : ICpuBus
         _dos = new DosServices(this, _drive);
         _dpmi = new DpmiHost(this, _dos);
         InstallBios();
+        InstallDisks();
         _ems.Install();
         _dpmi.Install();
         InstallSound();
@@ -115,20 +126,53 @@ public sealed partial class Machine : ICpuBus
     /// <summary>The program's exit code, once it has ended: for a batch file, its last program's.</summary>
     public int ExitCode { get; internal set; }
 
+    /// <summary>The display adapter the machine was built with.</summary>
+    public VideoAdapter Video { get; }
+
     /// <summary>The video mode the program last chose through the BIOS; 3, 80 by 25 text, at the start.</summary>
-    public int VideoMode => _vga.Mode;
+    public int VideoMode => _cga?.Mode ?? _vga.Mode;
 
     /// <summary>The width of the picture the display shows, in pixels.</summary>
-    public int DisplayWidth => _vga.Size.Width;
+    public int DisplayWidth => _cga is null ? _vga.Size.Width : Cga.Width;
 
     /// <summary>The height of the picture the display shows, in pixels.</summary>
-    public int DisplayHeight => _vga.Size.Height;
+    public int DisplayHeight => _cga is null ? _vga.Size.Height : Cga.Height;
+
+    /// <summary>How many pictures the display shows a second: 70 in the VGA's modes, 60 on the CGA.</summary>
+    public double FrameRate => _cga is null ? Vga.FrameRate : Cga.FrameRate;
+
+    /// <summary>
+    /// Whether the CGA's picture is decoded as a composite monitor or a television showed it,
+    /// where patterns of dots make colors of their own, rather than as an RGB monitor did.
+    /// Nothing changes on a machine with a VGA.
+    /// </summary>
+    public bool Composite
+    {
+        get => _cga?.Composite ?? false;
+        set
+        {
+            if (_cga is not null)
+            {
+                _cga.Composite = value;
+            }
+        }
+    }
 
     /// <summary>
     /// Draws the picture the display shows, <see cref="DisplayWidth"/> by <see cref="DisplayHeight"/>
     /// pixels of 32-bit ARGB, row by row. Text modes are drawn black for now.
     /// </summary>
-    public void Render(Span<uint> pixels) => _vga.Render(pixels);
+    public void Render(Span<uint> pixels)
+    {
+        if (_cga is null)
+        {
+            _vga.Render(pixels);
+        }
+        else
+        {
+            _cga.Render(pixels);
+        }
+    }
 
     /// <summary>
     /// How fast the machine runs, in instructions per second. Time in the machine (the timer's
@@ -328,7 +372,8 @@ public sealed partial class Machine : ICpuBus
         address = Wrap(address);
         if (address - VideoMemory < 0x2_0000)
         {
-            return _vga.Read(address);
+            // a CGA answers only from B8000h; there's nothing below it
+            return _cga is null ? _vga.Read(address) : address >= CgaMemory ? _cga.Read(address) : (byte)0xFF;
         }
 
         if (address - PageFrame < 0x1_0000)
@@ -345,7 +390,14 @@ public sealed partial class Machine : ICpuBus
         address = Wrap(address);
         if (address - VideoMemory < 0x2_0000)
         {
-            _vga.Write(address, value);
+            if (_cga is null)
+            {
+                _vga.Write(address, value);
+            }
+            else if (address >= CgaMemory)
+            {
+                _cga.Write(address, value);
+            }
         }
         else if (address - PageFrame < 0x1_0000)
         {
@@ -412,10 +464,11 @@ public sealed partial class Machine : ICpuBus
                 // the second DMA controller, for 16-bit transfers, and its page registers
                 UpdateSound();
                 return _wideDma.In(port);
-            case >= 0x3C0 and <= 0x3CF:
-            case 0x3D4:
-            case 0x3D5:
-            case 0x3DA:
+            case >= 0x3D0 and <= 0x3DF when _cga is not null:
+                _cga.Time = Seconds;
+                return _cga.In(port);
+            case >= 0x3C0 and <= 0x3CF when _cga is null:
+            case 0x3D4 or 0x3D5 or 0x3DA when _cga is null:
                 _vga.Time = Seconds;
                 return _vga.In(port);
             default:
@@ -440,11 +493,15 @@ public sealed partial class Machine : ICpuBus
                 _pic2.Write(port, value);
                 break;
             case >= 0x40 and <= 0x43:
+                // counter 2 is the speaker's tone: the sound so far is made before it changes
+                UpdateSound();
                 _timer.Write(port, value);
                 break;
             case 0x61:
+                UpdateSound();
                 _portB = value;
                 _timer.Gate2 = (value & 1) != 0;
+                _speaker.PortB = value;
                 break;
             case 0x60:
             case 0x64:
@@ -493,9 +550,11 @@ public sealed partial class Machine : ICpuBus
                 _wideDma.Out(port, value);
                 ScheduleSoundEvent();
                 break;
-            case >= 0x3C0 and <= 0x3CF:
-            case 0x3D4:
-            case 0x3D5:
+            case >= 0x3D0 and <= 0x3DF when _cga is not null:
+                _cga.Out(port, value);
+                break;
+            case >= 0x3C0 and <= 0x3CF when _cga is null:
+            case 0x3D4 or 0x3D5 when _cga is null:
                 _vga.Out(port, value);
                 break;
             default:
@@ -648,6 +707,7 @@ public sealed partial class Machine : ICpuBus
             case 0x10: VideoService(); break;
             case 0x11: Cpu.Eax = (Cpu.Eax & 0xFFFF_0000) | ReadWord(0x40, 0x10); break;
             case 0x12: Cpu.Eax = (Cpu.Eax & 0xFFFF_0000) | ReadWord(0x40, 0x13); break;
+            case 0x13: DiskService(); break;
             case 0x15: SystemService(); break;
             case 0x16: KeyboardService(); break;
             case 0x1A: ClockService(); break;

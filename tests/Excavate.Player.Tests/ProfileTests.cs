@@ -104,27 +104,60 @@ public sealed class ProfileTests : IDisposable
         Assert.Throws<FileNotFoundException>(() => Games.In(Countdown, Games.Named("orion")!));
     }
 
-    [Fact]
-    public void A_game_that_boots_from_its_disks_is_known_by_what_is_on_them()
+    /// <summary>A 360K image with names in its root directory, after a deleted entry that doesn't count.</summary>
+    private static string Image(string folder, string name, params string[] files)
     {
-        // a 360K image, whatever it's called, with PORTAL.EXE in its root directory after a
-        // deleted entry, which doesn't count
-        string folder = Directory.CreateDirectory(Path.Combine(_root, "Portal")).FullName;
         var image = new byte[Games.FloppySize];
         int root = 5 * 512;
         "XOTHER  EXE"u8.CopyTo(image.AsSpan(root));
         image[root] = 0xE5;
-        "PORTAL  EXE"u8.CopyTo(image.AsSpan(root + 32));
-        string path = Path.Combine(folder, "SIDE_A.IMG");
-        File.WriteAllBytes(path, image);
+        for (int i = 0; i < files.Length; i++)
+        {
+            System.Text.Encoding.ASCII.GetBytes(files[i]).CopyTo(image.AsSpan(root + (32 * (i + 1))));
+        }
 
-        Assert.Equal(["PORTAL.EXE"], Games.NamesOn(path));
+        string path = Path.Combine(folder, name);
+        File.WriteAllBytes(path, image);
+        return path;
+    }
+
+    [Fact]
+    public void A_game_played_from_its_disks_is_known_by_what_is_on_them()
+    {
+        // Portal's disks, whatever they're called: the first has PORTAL.EXE, the others only data
+        string folder = Directory.CreateDirectory(Path.Combine(_root, "Portal")).FullName;
+        string second = Image(folder, "A.IMG");
+        string first = Image(folder, "B.IMG", "PORTAL  EXE");
+        string third = Image(folder, "C.IMG");
+        Assert.Equal(["PORTAL.EXE"], Games.NamesOn(first));
+
         var portal = Games.Named("portal")!;
         Assert.Equal(portal, Games.KnownIn(folder));
 
-        // known, but not yet played
-        var ex = Assert.Throws<NotSupportedException>(() => Games.In(folder, portal));
+        // the disk with the program first, then the rest by name
+        var game = Games.In(folder, portal);
+        Assert.Equal([first, second, third], game.Disks);
+        Assert.Equal(@"A:\PORTAL.EXE", game.Program);
+        Assert.Equal(Core.VideoAdapter.Cga, game.Video);
+    }
+
+    [Fact]
+    public void A_game_that_boots_from_its_disks_is_known_but_not_played_yet()
+    {
+        string folder = Directory.CreateDirectory(Path.Combine(_root, "Metropolis")).FullName;
+        Image(folder, "METROPOA.IMA", "METRO   SCR");
+        var metropolis = Games.Named("metropolis")!;
+        Assert.Equal(metropolis, Games.KnownIn(folder));
+        var ex = Assert.Throws<NotSupportedException>(() => Games.In(folder, metropolis));
         Assert.Contains("boots from its own disks", ex.Message);
+    }
+
+    [Fact]
+    public void A_game_on_drive_C_has_no_disks_and_a_vga()
+    {
+        var game = Games.Find(Countdown, null);
+        Assert.Empty(game.Disks);
+        Assert.Equal(Core.VideoAdapter.Vga, game.Video);
     }
 
     [Fact]

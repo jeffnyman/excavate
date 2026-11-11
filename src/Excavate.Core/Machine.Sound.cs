@@ -8,8 +8,7 @@ namespace Excavate.Core;
 public sealed partial class Machine
 {
     /// <summary>
-    /// The sample rate of the machine's sound, in samples a second: 44,100, as GOG's DOSBox
-    /// settings for both games use.
+    /// The sample rate of the machine's sound, in samples a second: 44,100, a CD's.
     /// </summary>
     public const int SampleRate = 44_100;
 
@@ -21,6 +20,7 @@ public sealed partial class Machine
     private DmaController _dma = null!;
     private DmaController _wideDma = null!;
     private SoundBlaster _soundBlaster = null!;
+    private PcSpeaker _speaker = null!;
 
     // when the sound must next be made up to, because a device will interrupt then; an
     // instruction count, as _time is
@@ -87,6 +87,8 @@ public sealed partial class Machine
 
     private void InstallSound()
     {
+        _speaker = new PcSpeaker(_timer);
+        _sources.Add(_speaker);
         _sources.Add(_opl);
         _mpu = new Mpu401(line => Log?.Invoke(line));
 

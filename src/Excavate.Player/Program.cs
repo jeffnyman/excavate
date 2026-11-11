@@ -128,6 +128,9 @@ internal static class Program
                 case "--no-square-pixels":
                     given.SquarePixels = false;
                     break;
+                case "--composite" or "--rgb":
+                    given.Composite = args[i] == "--composite";
+                    break;
                 case "--joystick" or "--no-joystick":
                     given.Joystick = args[i] == "--joystick";
                     break;
@@ -283,12 +286,29 @@ internal static class Program
         Directory.CreateDirectory(saves);
 
         using var log = logPath is null ? null : new StreamWriter(logPath);
-        var machine = new Machine(game.Folder, saves)
+        var machine = new Machine(game.Folder, saves, game.Video)
         {
             InstructionsPerSecond = (profile.Cycles ?? game.Cycles) * 1000,
             Log = log is null ? null : log.WriteLine,
             Mouse = (profile.Mouse ?? true) && !headless,
+            Composite = profile.Composite ?? false,
         };
+
+        if (game.Disks is { Length: > 0 } disks)
+        {
+            // the game's floppies by drive A:, disk 1 in it, with the protection the images lost
+            machine.InsertFloppies(disks);
+            foreach (var extra in game.Known?.Disks?.Protection ?? [])
+            {
+                if (extra.Disk < disks.Length)
+                {
+                    machine.RestoreSectors(extra.Disk, extra.Cylinder, extra.Head, extra.First, extra.Last);
+                }
+            }
+
+            string names = string.Join(", ", disks.Select((disk, n) => $"{n + 1} {Path.GetFileName(disk)}"));
+            Console.WriteLine($"excavate: disks {names}; Ctrl+F1 to Ctrl+F{Math.Min(disks.Length, 4)} put one in drive A:");
+        }
 
         machine.Load(game.Program, arguments);
         statePath ??= Games.StateFile(game);
@@ -414,6 +434,8 @@ internal static class Program
               --fullscreen       start in full screen (--windowed: in a window)
               --square-pixels    square pixels, not the 4:3 picture a monitor showed
                                  (--no-square-pixels: 4:3)
+              --composite        a CGA game as a composite monitor or television showed it, with
+                                 the colors its patterns of dots made (--rgb: an RGB monitor's)
               --no-joystick      no joystick on the game port, even with a gamepad plugged in
               --no-mouse         no mouse
               --no-sound         no sound
@@ -436,6 +458,8 @@ internal static class Program
               the mouse is the PC's once a click in the window captures it; Ctrl+F10 frees it
               F11 full screen, Shift+F11 pixel shape, F12 full speed on and off, Pause pauses
               Ctrl+F5 saves the whole machine's state, Ctrl+F9 loads it back
+              Ctrl+F1 to Ctrl+F4 put disk 1 to 4 in drive A:, for a game played from its disks
+              Ctrl+F11 switches a CGA game between an RGB and a composite monitor
             """);
     }
 

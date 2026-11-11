@@ -89,6 +89,9 @@ internal sealed class IntervalTimer
 
     public bool Output2 => _counters[2].Output(Now);
 
+    /// <summary>Counter 2's output at a moment in timer ticks, as it's set now: the speaker's tone.</summary>
+    public bool Output2At(long tick) => _counters[2].Output(tick);
+
     /// <summary>Raised when counter 0 is loaded, so the machine can time IRQ 0 from then.</summary>
     public event Action? Reloaded0;
 

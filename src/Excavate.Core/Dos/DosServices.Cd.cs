@@ -4,7 +4,7 @@ namespace Excavate.Core.Dos;
 internal sealed partial class DosServices
 {
     /// <summary>Drive numbers as DOS counts them in most calls: A: is 0, so C: is 2 and the CD, D:, 3.</summary>
-    private const int DriveC = 2, DriveD = 3;
+    private const int DriveA = 0, DriveC = 2, DriveD = 3;
 
     /// <summary>
     /// The highest drive DOS answers for, as function 0Eh reports it: E:, DOS's own default for
@@ -60,8 +60,9 @@ internal sealed partial class DosServices
 
     private bool CdDirectoryExists(string[] parts) => _cd?.Find(parts) is { IsDirectory: true };
 
-    /// <summary>Whether a drive, numbered from 0 for A:, is one of the machine's.</summary>
-    private bool DriveExists(int number) => number == DriveC || (number == DriveD && _cd is not null);
+    /// <summary>Whether a drive, numbered from 0 for A:, is one of the machine's: A: when there are floppy disks for it.</summary>
+    private bool DriveExists(int number)
+        => number == DriveC || (number == DriveD && _cd is not null) || (number == DriveA && machine.Floppies > 0);
 
     /// <summary>A drive as the calls that number from 1 for A: give it, with 0 for the current drive, numbered from 0.</summary>
     private int DriveIn(byte number) => number == 0 ? _currentDrive : number - 1;

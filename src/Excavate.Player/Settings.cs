@@ -30,10 +30,13 @@ internal sealed class Profile
 
     public bool? SquarePixels { get; set; }
 
+    /// <summary>Whether a CGA game is shown as a composite monitor showed it, rather than an RGB monitor.</summary>
+    public bool? Composite { get; set; }
+
     /// <summary>Whether nothing is set.</summary>
     [JsonIgnore]
     public bool IsEmpty => Cycles is null && Sound is null && Joystick is null && Mouse is null
-        && MouseSpeed is null && Scale is null && Fullscreen is null && SquarePixels is null;
+        && MouseSpeed is null && Scale is null && Fullscreen is null && SquarePixels is null && Composite is null;
 
     /// <summary>The values set in another profile, over this one's.</summary>
     public void Take(Profile other)
@@ -46,6 +49,7 @@ internal sealed class Profile
         Scale = other.Scale ?? Scale;
         Fullscreen = other.Fullscreen ?? Fullscreen;
         SquarePixels = other.SquarePixels ?? SquarePixels;
+        Composite = other.Composite ?? Composite;
     }
 
     /// <summary>What's set, in a line: "cycles 600, scale 4".</summary>
@@ -80,6 +84,7 @@ internal sealed class Profile
 
         Flag(Fullscreen, "full screen");
         Flag(SquarePixels, "square pixels");
+        Flag(Composite, "composite");
         return parts.Count == 0 ? "the defaults" : string.Join(", ", parts);
     }
 }

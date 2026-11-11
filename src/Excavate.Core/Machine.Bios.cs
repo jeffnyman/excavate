@@ -1,3 +1,6 @@
+using Excavate.Core.Devices;
+using Excavate.Core.Processors;
+
 namespace Excavate.Core;
 
 // The BIOS: the interrupt table, the BIOS data area, and the BIOS services answered in C#.
@@ -7,7 +10,7 @@ public sealed partial class Machine
     private const ushort StubBase = 0x0100;
 
     // the vectors answered in C#: the BIOS's, DOS's and the mouse driver's (EMS installs its own)
-    private static readonly byte[] Services = [0x10, 0x11, 0x12, 0x15, 0x16, 0x1A, 0x20, 0x21, 0x2F, 0x33];
+    private static readonly byte[] Services = [0x10, 0x11, 0x12, 0x13, 0x15, 0x16, 0x1A, 0x20, 0x21, 0x2F, 0x33];
 
     // the BIOS's timer and keyboard interrupt handlers, past the stubs, and its system
     // configuration table
@@ -125,6 +128,10 @@ public sealed partial class Machine
 
         // the model byte at F000:FFFE: FCh, an AT-class machine
         WriteRom(0xF_FFFE, [0xFC]);
+
+        // the first half of the character set's 8 by 8 font, where IBM's BIOS has it: games of
+        // the CGA's time draw their text from it (Portal does)
+        WriteRom(RomFont.Address, RomFont.Glyphs[..(128 * 8)]);
     }
 
     /// <summary>
@@ -171,6 +178,11 @@ public sealed partial class Machine
     /// <summary>INT 10h, the video BIOS. Only what's needed until the VGA is emulated.</summary>
     private void VideoService()
     {
+        if (_cga is not null && CgaVideoService())
+        {
+            return;
+        }
+
         switch (Ah)
         {
             case 0x00:
@@ -235,6 +247,98 @@ public sealed partial class Machine
             default:
                 throw new NotSupportedException($"INT 10h function {Ah:X2}h isn't provided.");
         }
+    }
+
+    /// <summary>
+    /// The video BIOS's calls that differ on a CGA: setting a mode (0 to 6), the palette, and
+    /// pixels in the graphics modes. The rest are answered as on the VGA. Returns whether the
+    /// call was answered here.
+    /// </summary>
+    private bool CgaVideoService()
+    {
+        var cga = _cga!;
+        switch (Ah)
+        {
+            case 0x00:
+            {
+                int mode = Al & 0x7F;
+                cga.SetMode(mode, clear: (Al & 0x80) == 0);
+                WriteByte(0x40, 0x49, (byte)cga.Mode);
+                WriteWord(0x40, 0x4A, (ushort)(cga.Mode is 0 or 1 or 4 or 5 ? 40 : 80));
+                WriteWord(0x40, 0x4C, (ushort)(cga.Mode is >= 4 and <= 6 ? 0x4000 : cga.Mode is 0 or 1 ? 0x800 : 0x1000));
+                WriteByte(0x40, 0x65, cga.ModeControl);
+                WriteByte(0x40, 0x66, cga.ColorSelect);
+                Trace($"10/00 set video mode {mode:X2}h (CGA)");
+                return true;
+            }
+
+            case 0x0B:
+            {
+                // the palette: BH 0 sets the background (in graphics) or border (in text) color,
+                // with its intensity, from BL; BH 1 picks the 320-wide modes' palette from BL's bit 0
+                byte bl = (byte)Cpu.Ebx;
+                byte select = (byte)(Cpu.Ebx >> 8) == 0
+                    ? (byte)((cga.ColorSelect & 0xE0) | (bl & 0x1F))
+                    : (byte)((cga.ColorSelect & ~0x20) | ((bl & 1) != 0 ? 0x20 : 0));
+                cga.ColorSelect = select;
+                WriteByte(0x40, 0x66, select);
+                Trace($"10/0B palette {(ushort)Cpu.Ebx:X4}h: color select {select:X2}h");
+                return true;
+            }
+
+            case 0x0C:
+                // write a pixel, color AL, at column CX and row DX; bit 7 of AL XORs it on
+                CgaPixel((ushort)Cpu.Ecx, (ushort)Cpu.Edx, Al);
+                return true;
+            case 0x0D:
+                SetAl(CgaPixel((ushort)Cpu.Ecx, (ushort)Cpu.Edx, null));
+                return true;
+            case 0x10:
+                // the EGA's and VGA's palette calls, which a CGA doesn't have
+                Trace($"10/10 palette function {Al:X2}h: not on a CGA");
+                return true;
+            case 0x11:
+            case 0x12:
+            case 0x1A:
+                // the EGA's and VGA's information: a CGA leaves the registers as they were,
+                // which is how programs tell there isn't one
+                return true;
+            case > 0x0F:
+                // past the PC BIOS's table of functions, which it returns from untouched
+                Trace($"10/{Ah:X2} not a function of the CGA's BIOS");
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>
+    /// A pixel of the CGA's graphics modes, by column and row: written when a color is given (and
+    /// XORed on with bit 7 set), and its color returned. Outside the graphics modes, nothing.
+    /// </summary>
+    private byte CgaPixel(int x, int y, byte? color)
+    {
+        var cga = _cga!;
+        if (cga.Mode is < 4 or > 6 || x >= (cga.Mode == 6 ? 640 : 320) || y >= 200)
+        {
+            return 0;
+        }
+
+        // two bits a pixel in the 320-wide modes, one in the 640-wide
+        int bits = cga.Mode == 6 ? 1 : 2;
+        int perByte = 8 / bits;
+        uint address = CgaMemory + (uint)(((y & 1) << 13) + ((y >> 1) * 80) + (x / perByte));
+        int shift = (perByte - 1 - (x % perByte)) * bits;
+        int mask = ((1 << bits) - 1) << shift;
+        byte b = cga.Read(address);
+        if (color is { } c)
+        {
+            int value = ((c & ((1 << bits) - 1)) << shift) & mask;
+            b = (c & 0x80) != 0 ? (byte)(b ^ value) : (byte)((b & ~mask) | value);
+            cga.Write(address, b);
+        }
+
+        return (byte)((b & mask) >> shift);
     }
 
     /// <summary>INT 10h AH=10h: the palette. Only the DAC's 256 colors matter in the 256-color modes.</summary>
@@ -335,6 +439,10 @@ public sealed partial class Machine
                 break;
             case 0x01:
             case 0x11:
+                // IBM's BIOS turns interrupts on as its keyboard service starts, so a program
+                // polling for a key with them off still gets the keyboard's interrupt, before
+                // the IRET puts its flags back
+                Cpu.Eflags |= Intel386.Flag.Interrupt;
                 if (FromBuffer(take: false) is { } waiting)
                 {
                     SetAx(waiting);

@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Text;
+using Excavate.Core.Disks;
 
 namespace Excavate.Core.Dos;
 
@@ -45,6 +46,12 @@ internal sealed partial class DosServices(Machine machine, DosDrive drive)
     /// </summary>
     public void Load(string program, string arguments)
     {
+        if (program.Length >= 2 && char.ToUpperInvariant(program[0]) == 'A' && program[1] == ':')
+        {
+            LoadFromFloppy(program, arguments);
+            return;
+        }
+
         var location = Locate(program) ?? throw new FileNotFoundException($"{program} isn't on a drive.", program);
         if (program.Length >= 2 && program[1] == ':')
         {
@@ -87,6 +94,25 @@ internal sealed partial class DosServices(Machine machine, DosDrive drive)
     /// <summary>Loads a program by its path on drive C:, and readies the processor to run it.</summary>
     internal void LoadProgram(string[] parts, string arguments) => LoadProgram(new Location(false, parts), arguments);
 
+    /// <summary>
+    /// Loads a program from the disk in drive A:, as it was run from a game's floppy, which
+    /// leaves A: the current drive. The disk is read as DOS reads a FAT12 disk; DOS's file calls
+    /// don't reach it yet, so a program that then opens files on A: finds none there.
+    /// </summary>
+    private void LoadFromFloppy(string program, string arguments)
+    {
+        var disk = machine.DiskInDrive ?? throw new FileNotFoundException($"There's no disk in drive A: to run {program} from.", program);
+        var fat = new FatImage(disk);
+        if (DosDrive.Resolve(program[2..], "") is not { Length: > 0 } parts || fat.Find(parts) is not { IsDirectory: false } entry)
+        {
+            throw new FileNotFoundException($"{program} isn't on the disk in drive A:, {disk.Name}.", program);
+        }
+
+        InitializeArena();
+        _currentDrive = DriveA;
+        LoadImage(@"A:\" + DosDrive.Join(parts), parts[^1], fat.Read(entry), arguments);
+    }
+
     /// <summary>Loads a program by its place on a drive, and readies the processor to run it.</summary>
     private void LoadProgram(Location location, string arguments)
     {
@@ -108,8 +134,12 @@ internal sealed partial class DosServices(Machine machine, DosDrive drive)
             image = File.ReadAllBytes(file);
         }
 
-        string program = location.Parts[^1];
+        LoadImage(dosPath, location.Parts[^1], image, arguments);
+    }
 
+    /// <summary>Loads a program's file, read from wherever it is, with its environment, and readies the processor to run it.</summary>
+    private void LoadImage(string dosPath, string program, byte[] image, string arguments)
+    {
         // the environment: variables, then a word of 1 and the program's full path, by which
         // programs find the folder they were run from
         var environment = new List<byte>();

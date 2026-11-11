@@ -1,4 +1,25 @@
+using Excavate.Core;
+
 namespace Excavate.Player;
+
+/// <summary>
+/// A track of a game's disk that the original disk had more sectors on than a standard one, and
+/// an image of it lost: the game's copy protection, which the player puts back.
+/// </summary>
+/// <param name="Disk">The disk, counting from 0.</param>
+/// <param name="Cylinder">The track's cylinder.</param>
+/// <param name="Head">The track's side.</param>
+/// <param name="First">The first of the extra sectors' numbers.</param>
+/// <param name="Last">The last.</param>
+internal sealed record ExtraSectors(int Disk, int Cylinder, int Head, int First, int Last);
+
+/// <summary>
+/// How a game played from its floppy disks has them: the images in its folder are its disks,
+/// the one with a file named here first and the rest in the order of their names.
+/// </summary>
+/// <param name="FirstDisk">A file in the first disk's root directory, which tells it from the others.</param>
+/// <param name="Protection">The extra sectors to put back on the disks.</param>
+internal sealed record DiskSet(string FirstDisk, ExtraSectors[] Protection);
 
 /// <summary>
 /// A game the player knows by a short name: what it is, how its folder is recognized, and what
@@ -12,15 +33,20 @@ namespace Excavate.Player;
 /// directory of a disk image there, and the folder is taken to be this game's.
 /// </param>
 /// <param name="Program">
-/// The program to run, the game's own (never a launcher added to a collection later); null for a
-/// game that boots from its own disks, with no DOS program to run.
+/// The program to run, the game's own (never a launcher added to a collection later), on drive
+/// C: or, as <c>A:\NAME.EXE</c>, from its first disk; null for a game that boots from its own
+/// disks, with no DOS program to run.
 /// </param>
 /// <param name="Cycles">
 /// Its speed to start from, in instructions a millisecond. Provisional until the game is played
 /// through: each is a first guess from the machine the game was written for.
 /// </param>
 /// <param name="Note">Where the game stands in Excavate, said in the list and the menu.</param>
-internal sealed record KnownGame(string Key, string Title, int Year, string[] Markers, string? Program, int Cycles, string Note);
+/// <param name="Video">The display adapter it was written for.</param>
+/// <param name="Disks">For a game played from its floppy disks, how it has them; otherwise null.</param>
+internal sealed record KnownGame(
+    string Key, string Title, int Year, string[] Markers, string? Program, int Cycles, string Note,
+    VideoAdapter Video = VideoAdapter.Vga, DiskSet? Disks = null);
 
 /// <summary>A game to play: its folder, the program in it to run, and how fast to run it.</summary>
 /// <param name="Folder">The game's folder, which becomes drive C:.</param>
@@ -28,7 +54,14 @@ internal sealed record KnownGame(string Key, string Title, int Year, string[] Ma
 /// <param name="Title">Its title.</param>
 /// <param name="Cycles">Its speed, in instructions a millisecond.</param>
 /// <param name="Known">The game the player knows it as, or null for a program it doesn't know.</param>
-internal sealed record Game(string Folder, string Program, string Title, int Cycles, KnownGame? Known);
+internal sealed record Game(string Folder, string Program, string Title, int Cycles, KnownGame? Known)
+{
+    /// <summary>The display adapter to build the machine with.</summary>
+    public VideoAdapter Video => Known?.Video ?? VideoAdapter.Vga;
+
+    /// <summary>The images of its floppy disks, disk 1 first; none for a game played from drive C:.</summary>
+    public string[] Disks => Known?.Disks is { } set ? Games.DisksIn(Folder, set) : [];
+}
 
 /// <summary>
 /// The games the player knows, and how it finds one from what's given on the command line: a
@@ -55,7 +88,10 @@ internal static class Games
     /// <summary>Every game the player knows, in the order the menu shows them: by year.</summary>
     public static readonly KnownGame[] Known =
     [
-        new("portal", "Portal", 1986, ["PORTAL.EXE"], null, Pc, "boots from its own disks, which Excavate doesn't do yet"),
+        // Portal: twice an 8088's pace, which keeps its prompts from losing keys typed at a
+        // person's speed; its disk 1's track 9 had sectors 1 to 16, of which a dump keeps nine
+        new("portal", "Portal", 1986, ["PORTAL.EXE"], @"A:\PORTAL.EXE", 2 * Pc, "new: it plays to Central Processing, and further is untried",
+            VideoAdapter.Cga, new DiskSet("PORTAL.EXE", [new ExtraSectors(0, 9, 0, 10, 16)])),
         new("metropolis", "Metropolis", 1987, ["METRO.SCR"], null, Tandy, "boots from its own disks, which Excavate doesn't do yet"),
         new("kennedy", "Guardians of Infinity: To Save Kennedy", 1988, ["GOI.EXE"], "KENNEDY.BAT", Pc, Untried),
         new("president", "The President Is Missing", 1988, ["PRES.EXE"], "PRES.EXE", Pc, Untried),
@@ -83,6 +119,17 @@ internal static class Games
 
     /// <summary>The size of a 360K floppy's image: 40 tracks, 2 sides, 9 sectors of 512 bytes.</summary>
     public const int FloppySize = 368_640;
+
+    /// <summary>
+    /// A game's disks in its folder: the image whose root directory has the file that marks the
+    /// first disk, then the others in the order of their names.
+    /// </summary>
+    public static string[] DisksIn(string folder, DiskSet set)
+    {
+        var images = DiskImagesIn(folder).ToList();
+        string? first = images.FirstOrDefault(image => NamesOn(image).Contains(set.FirstDisk, StringComparer.OrdinalIgnoreCase));
+        return first is null ? [.. images] : [first, .. images.Where(image => image != first)];
+    }
 
     /// <summary>The disk images in a folder: every file the size of a 360K floppy, whatever it's called.</summary>
     public static IEnumerable<string> DiskImagesIn(string folder)

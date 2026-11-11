@@ -2,31 +2,53 @@
 Excavate.Core.Machine
 Excavate.Core.Machine.A20.get -> bool
 Excavate.Core.Machine.A20.set -> void
+Excavate.Core.Machine.Composite.get -> bool
+Excavate.Core.Machine.Composite.set -> void
 Excavate.Core.Machine.Cpu.get -> Excavate.Core.Processors.Intel386!
 Excavate.Core.Machine.DisplayHeight.get -> int
 Excavate.Core.Machine.DisplayWidth.get -> int
 Excavate.Core.Machine.ExitCode.get -> int
-Excavate.Core.Machine.MickeysAcross.get -> (int X, int Y)
 Excavate.Core.Machine.Exited.get -> bool
+Excavate.Core.Machine.Floppies.get -> int
+Excavate.Core.Machine.Floppy.get -> int
+Excavate.Core.Machine.Floppy.set -> void
+Excavate.Core.Machine.FloppyName.get -> string?
+Excavate.Core.Machine.FrameRate.get -> double
 Excavate.Core.Machine.In(ushort port) -> byte
+Excavate.Core.Machine.InsertCd(string! image) -> string!
+Excavate.Core.Machine.InsertFloppies(System.Collections.Generic.IReadOnlyList<string!>! images) -> void
 Excavate.Core.Machine.InstructionsPerSecond.get -> int
 Excavate.Core.Machine.InstructionsPerSecond.set -> void
 Excavate.Core.Machine.Joysticks.get -> int
 Excavate.Core.Machine.Joysticks.set -> void
 Excavate.Core.Machine.Load(string! program, string! arguments = "") -> void
+Excavate.Core.Machine.LoadState(System.IO.Stream! stream) -> void
 Excavate.Core.Machine.Log.get -> System.Action<string!>?
 Excavate.Core.Machine.Log.set -> void
-Excavate.Core.Machine.Machine(string! gameFolder, string! saveFolder) -> void
+Excavate.Core.Machine.Machine(string! gameFolder, string! saveFolder, Excavate.Core.VideoAdapter video = Excavate.Core.VideoAdapter.Vga) -> void
+Excavate.Core.Machine.MickeysAcross.get -> (int X, int Y)
+Excavate.Core.Machine.Mount(string! directory, string! folder) -> void
+Excavate.Core.Machine.Mouse.get -> bool
+Excavate.Core.Machine.Mouse.set -> void
+Excavate.Core.Machine.MoveMouse(int dx, int dy) -> void
+Excavate.Core.Machine.Mt32.get -> string?
+Excavate.Core.Machine.Mt32Display.get -> string?
 Excavate.Core.Machine.Out(ushort port, byte value) -> void
 Excavate.Core.Machine.PressKey(byte scanCode, bool extended = false) -> void
 Excavate.Core.Machine.Read(uint address) -> byte
 Excavate.Core.Machine.ReadSamples(System.Span<short> samples) -> int
 Excavate.Core.Machine.ReleaseKey(byte scanCode, bool extended = false) -> void
+Excavate.Core.Machine.ReleaseKeys() -> void
 Excavate.Core.Machine.Render(System.Span<uint> pixels) -> void
+Excavate.Core.Machine.RestoreSectors(int disk, int cylinder, int head, int first, int last) -> void
 Excavate.Core.Machine.Run(long instructions) -> bool
+Excavate.Core.Machine.SaveState(System.IO.Stream! stream) -> void
 Excavate.Core.Machine.SetJoystickAxis(int axis, float value) -> void
 Excavate.Core.Machine.SetJoystickButton(int button, bool down) -> void
+Excavate.Core.Machine.SetMouseButton(int button, bool down) -> void
 Excavate.Core.Machine.Time.get -> System.TimeSpan
+Excavate.Core.Machine.UseMt32(string! romFolder) -> string!
+Excavate.Core.Machine.Video.get -> Excavate.Core.VideoAdapter
 Excavate.Core.Machine.VideoMode.get -> int
 Excavate.Core.Machine.Write(uint address, byte value) -> void
 Excavate.Core.Processors.ICpuBus
@@ -81,25 +103,16 @@ Excavate.Core.Processors.Intel386.Instructions.get -> long
 Excavate.Core.Processors.Intel386.Intel386(Excavate.Core.Processors.ICpuBus! bus) -> void
 Excavate.Core.Processors.Intel386.Interrupt(int vector) -> void
 Excavate.Core.Processors.Intel386.InterruptsEnabled.get -> bool
+Excavate.Core.Processors.Intel386.ProtectedMode.get -> bool
 Excavate.Core.Processors.Intel386.Ss.get -> ushort
 Excavate.Core.Processors.Intel386.Ss.set -> void
 Excavate.Core.Processors.Intel386.Step() -> void
 Excavate.Core.ScanCodes
 Excavate.Core.Screenshot
+Excavate.Core.VideoAdapter
+Excavate.Core.VideoAdapter.Cga = 1 -> Excavate.Core.VideoAdapter
+Excavate.Core.VideoAdapter.Vga = 0 -> Excavate.Core.VideoAdapter
 const Excavate.Core.Machine.SampleRate = 44100 -> int
 static Excavate.Core.ScanCodes.TryFromUsb(int usage, out byte scanCode, out bool extended) -> bool
 static Excavate.Core.Screenshot.WritePng(Excavate.Core.Machine! machine, System.IO.Stream! stream) -> void
 static Excavate.Core.Screenshot.WritePng(Excavate.Core.Machine! machine, string! path) -> void
-Excavate.Core.Machine.Mt32.get -> string?
-Excavate.Core.Machine.Mt32Display.get -> string?
-Excavate.Core.Machine.UseMt32(string! romFolder) -> string!
-Excavate.Core.Machine.Mouse.get -> bool
-Excavate.Core.Machine.Mouse.set -> void
-Excavate.Core.Machine.MoveMouse(int dx, int dy) -> void
-Excavate.Core.Machine.SetMouseButton(int button, bool down) -> void
-Excavate.Core.Machine.ReleaseKeys() -> void
-Excavate.Core.Machine.SaveState(System.IO.Stream! stream) -> void
-Excavate.Core.Machine.LoadState(System.IO.Stream! stream) -> void
-Excavate.Core.Processors.Intel386.ProtectedMode.get -> bool
-Excavate.Core.Machine.Mount(string! directory, string! folder) -> void
-Excavate.Core.Machine.InsertCd(string! image) -> string!

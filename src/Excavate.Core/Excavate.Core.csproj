@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <IsPackable>true</IsPackable>
-    <Description>A DOS PC emulator core, built to play a chosen set of DOS games rather than to be a whole PC: an x86 CPU, VGA, the timer and interrupt hardware, FM, MT-32 and Sound Blaster sound, and DOS answered directly in C#, with no user interface of its own.</Description>
+    <Description>A DOS PC emulator core, built to play a chosen set of DOS games rather than to be a whole PC: an x86 CPU, VGA or CGA, a floppy drive, the timer and interrupt hardware, the PC speaker, FM, MT-32 and Sound Blaster sound, and the BIOS and DOS answered directly in C#, with no user interface of its own.</Description>
     <!-- optimized in Debug too: the CPU runs millions of instructions a second -->
     <Optimize>true</Optimize>
     <!-- every public member is documented: a missing comment fails the build -->

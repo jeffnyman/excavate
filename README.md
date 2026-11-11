@@ -6,13 +6,13 @@ to run, with modern controls.
 
 Excavate is also a dig. Each game is taken apart to show how it works: how it starts, what it
 asks of the PC, and what the people who made it had to do to get it running on the machines of
-the time. Those notes will go in a `docs` folder as each game is worked on.
+the time. Those notes are in [docs](docs/), a game at a time.
 
 ## The games
 
 | Game | Year | Short name | Where it stands |
 |---|---|---|---|
-| *Portal* | 1986 | `portal` | Recognized; boots from its own disks, which Excavate doesn't do yet |
+| *Portal* | 1986 | `portal` | Plays from its disk images to Central Processing; further is untried |
 | *Metropolis* | 1987 | `metropolis` | Recognized; boots from its own disks, which Excavate doesn't do yet |
 | *Guardians of Infinity: To Save Kennedy* | 1988 | `kennedy` | Not yet tried |
 | *The President Is Missing* | 1988 | `president` | Not yet tried |
@@ -48,12 +48,22 @@ With no game named, a menu lists them. `--help` lists the options.
 - **F11** is full screen, **Shift+F11** the pixel shape, **F12** full speed on and off, and
   **Pause** pauses.
 - **Ctrl+F5** saves the whole machine's state, and **Ctrl+F9** loads it back.
+- **Ctrl+F1** to **Ctrl+F4** put disk 1 to 4 in drive A:, for a game played from its disks,
+  when it asks for another.
+- **Ctrl+F11** switches a CGA game between an RGB monitor and a composite one, where patterns
+  of dots blend into colors of their own; `--composite` starts with it.
 
 ## How it's built
 
 `Excavate.Core` is the machine: an x86 processor, the timer, interrupt and DMA hardware, the
-keyboard controller and game port, VGA, FM, MT-32 and Sound Blaster sound, and DOS answered
-directly in C# instead of being booted. `Excavate.Player` puts it in a window with SDL3.
+keyboard controller and game port, a floppy drive, VGA or CGA (with its composite colors), the
+PC speaker, FM, MT-32 and Sound Blaster sound, and the BIOS and DOS answered directly in C#
+instead of being booted. `Excavate.Player` puts it in a window with SDL3.
+
+A game played from floppies is given its disks' images, which stay untouched: what it writes
+goes to a copy in its save folder. Where a game's copy protection lived on its original disks in
+a form a plain image can't hold, the player puts it back on the disk, so the game's own program
+runs unchanged. How each game was worked out is in [docs](docs/).
 
 Excavate began as a copy of the core of [Confederation](https://github.com/jeffnyman/confederation),
 the same kind of emulator built for the *Wing Commander* games, and goes its own way from there.

@@ -50,8 +50,8 @@ internal sealed class PlayerOptions
 /// </remarks>
 internal sealed unsafe class SdlPlayer : IDisposable
 {
-    // the frame rate of the VGA's 256-color modes, which the picture is shown at
-    private const double FrameRate = 70.086;
+    // the display's frame rate, which the picture is shown at: 70 for the VGA, 60 for the CGA
+    private double FrameRate => _machine.FrameRate;
 
     // the stick's center is a little loose on most gamepads: inside this, it's centered
     private const float DeadZone = 0.08f;
@@ -336,6 +336,28 @@ internal sealed unsafe class SdlPlayer : IDisposable
         // were written, and Pause is the one key a game can't read
         switch (key.scancode)
         {
+            case SDL_Scancode.SDL_SCANCODE_F1 or SDL_Scancode.SDL_SCANCODE_F2 or SDL_Scancode.SDL_SCANCODE_F3 or SDL_Scancode.SDL_SCANCODE_F4
+                when (key.mod & SDL_Keymod.SDL_KMOD_CTRL) != 0 && _machine.Floppies > 0:
+                if (key.down && !key.repeat)
+                {
+                    // a disk into drive A:, by its number
+                    int disk = key.scancode - SDL_Scancode.SDL_SCANCODE_F1;
+                    if (disk < _machine.Floppies)
+                    {
+                        _machine.Floppy = disk;
+                        Message($"disk {disk + 1} in drive A:");
+                    }
+                }
+
+                return;
+            case SDL_Scancode.SDL_SCANCODE_F11 when (key.mod & SDL_Keymod.SDL_KMOD_CTRL) != 0 && _machine.Video == VideoAdapter.Cga:
+                if (key.down && !key.repeat)
+                {
+                    _machine.Composite = !_machine.Composite;
+                    Message(_machine.Composite ? "composite monitor" : "RGB monitor");
+                }
+
+                return;
             case SDL_Scancode.SDL_SCANCODE_F11:
                 if (key.down && !key.repeat)
                 {

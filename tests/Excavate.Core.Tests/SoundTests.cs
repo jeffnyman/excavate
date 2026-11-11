@@ -1,3 +1,4 @@
+using Excavate.Core.Devices;
 using Excavate.Core.Sound;
 
 namespace Excavate.Core.Tests;
@@ -5,6 +6,54 @@ namespace Excavate.Core.Tests;
 /// <summary>The sound devices on their own, without a program.</summary>
 public class SoundTests
 {
+    /// <summary>A tenth of a second of the speaker, with counter 2 set to a count, as programs set it for a tone.</summary>
+    private static int[] Speaker(int count, byte portB)
+    {
+        var timer = new IntervalTimer();
+        timer.Write(0x43, 0xB6); // counter 2, both bytes, a square wave
+        timer.Write(0x42, (byte)count);
+        timer.Write(0x42, (byte)(count >> 8));
+        timer.Gate2 = (portB & 1) != 0;
+        var speaker = new PcSpeaker(timer) { PortB = portB };
+        var mix = new int[2 * Machine.SampleRate / 10];
+        speaker.Render(mix);
+        return mix;
+    }
+
+    [Fact]
+    public void The_speaker_plays_counter_2s_square_wave_when_both_bits_are_on()
+    {
+        // 1,193,182 Hz over 1,193 is 1 kHz: a hundred cycles in a tenth of a second, each
+        // crossing zero twice
+        var mix = Speaker(1193, 0x03);
+        int crossings = 0;
+        for (int i = 2; i < mix.Length; i += 2)
+        {
+            if ((mix[i - 2] < 0) != (mix[i] < 0))
+            {
+                crossings++;
+            }
+        }
+
+        Assert.InRange(crossings, 195, 205);
+        Assert.True(mix.Max() > 3000, $"the tone is too quiet: {mix.Max()}");
+    }
+
+    [Fact]
+    public void The_speaker_is_silent_without_its_data_bit()
+    {
+        Assert.All(Speaker(1193, 0x01), sample => Assert.Equal(0, sample));
+    }
+
+    [Fact]
+    public void A_cone_held_out_settles_back_to_silence()
+    {
+        // the gate off holds counter 2's output high, so the data bit alone moves the cone, once
+        var mix = Speaker(1193, 0x02);
+        Assert.True(mix[0] > 3000);
+        Assert.True(Math.Abs(mix[^1]) < 100, $"still at {mix[^1]}");
+    }
+
     [Fact]
     public void The_adlib_detection_sequence_finds_the_opl()
     {
