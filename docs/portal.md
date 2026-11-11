@@ -110,6 +110,11 @@ when the game asks for one.
   (`out 42h` twice), relying on the BIOS to have put the counter in its square-wave mode, and
   times the beep with `loop` delays.
 - **The joystick**, through port 201h, if you say you have one at the start: see below.
+- **An 8088's speed.** Its pauses, such as how long a panel stays up, are a `loop` run a
+  number of times over: 260 times the count it's given, up to 2,500. A taken `loop` is about 17
+  of the 8088's clocks, so at 4.77 MHz the longest pause is some 2.3 seconds, and on a faster
+  machine it's shorter by as much as the machine is faster. Excavate runs it at 300
+  instructions a millisecond, about an IBM PC's pace. (eXoDOS has it at 600, twice that.)
 - **The model byte** at F000:FFFEh: FDh, a PCjr, is noted for later.
 - **`INT 1Ah`** function 00h, the tick count, as a random number.
 

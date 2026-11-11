@@ -32,7 +32,7 @@ public sealed class PortalTests : IDisposable
         }
 
         var disks = new[] { "DISK1.DAT", "DISK2.DAT", "DISK3.DAT" }.Select(name => Path.Combine(folder, name)).ToArray();
-        var machine = new Machine(folder, _saves, VideoAdapter.Cga) { Log = _log.Add, InstructionsPerSecond = 600_000 };
+        var machine = new Machine(folder, _saves, VideoAdapter.Cga) { Log = _log.Add, InstructionsPerSecond = 300_000 };
         machine.InsertFloppies(disks);
         if (protection)
         {
@@ -75,6 +75,19 @@ public sealed class PortalTests : IDisposable
             machine.ReleaseKey(code);
             machine.Run(machine.InstructionsPerSecond);
         }
+    }
+
+    /// <summary>
+    /// Gives a name at the login prompt, then says no joystick once the question is on the
+    /// screen, and waits through the retina scan to Central Processing.
+    /// </summary>
+    private static void LogIn(Machine machine)
+    {
+        machine.Run(machine.InstructionsPerSecond * 20);
+        Type(machine, "EXCAVATE|");
+        machine.Run(machine.InstructionsPerSecond * 5);
+        Type(machine, "N");
+        machine.Run(machine.InstructionsPerSecond * 60);
     }
 
     private static int Colors(Machine machine) => Picture(machine).Distinct().Count();
@@ -127,11 +140,7 @@ public sealed class PortalTests : IDisposable
             return;
         }
 
-        machine.Run(machine.InstructionsPerSecond * 20);
-
-        // a name, Enter, and no joystick
-        Type(machine, "EXCAVATE|N");
-        machine.Run(machine.InstructionsPerSecond * 60);
+        LogIn(machine);
         Screenshot.WritePng(machine, Path.Combine(Shots, "portal-central-processing.png"));
         machine.Composite = true;
         Screenshot.WritePng(machine, Path.Combine(Shots, "portal-central-processing-composite.png"));
@@ -161,9 +170,7 @@ public sealed class PortalTests : IDisposable
             return;
         }
 
-        machine.Run(machine.InstructionsPerSecond * 20);
-        Type(machine, "EXCAVATE|N");
-        machine.Run(machine.InstructionsPerSecond * 60);
+        LogIn(machine);
 
         // Space goes into Central Processing, and Down then moves the highlight on, each
         // changing the picture: the joystick, chosen at the start, only sends these same keys

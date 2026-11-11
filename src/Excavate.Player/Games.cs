@@ -88,9 +88,9 @@ internal static class Games
     /// <summary>Every game the player knows, in the order the menu shows them: by year.</summary>
     public static readonly KnownGame[] Known =
     [
-        // Portal: twice an 8088's pace, which keeps its prompts from losing keys typed at a
-        // person's speed; its disk 1's track 9 had sectors 1 to 16, of which a dump keeps nine
-        new("portal", "Portal", 1986, ["PORTAL.EXE"], @"A:\PORTAL.EXE", 2 * Pc, "new: it plays to Central Processing, and further is untried",
+        // Portal: an 8088's pace, since it times its pauses by counting loops; its disk 1's
+        // track 9 had sectors 1 to 16, of which a dump keeps nine
+        new("portal", "Portal", 1986, ["PORTAL.EXE"], @"A:\PORTAL.EXE", Pc, "new: it plays to Central Processing, and further is untried",
             VideoAdapter.Cga, new DiskSet("PORTAL.EXE", [new ExtraSectors(0, 9, 0, 10, 16)])),
         new("metropolis", "Metropolis", 1987, ["METRO.SCR"], null, Tandy, "boots from its own disks, which Excavate doesn't do yet"),
         new("kennedy", "Guardians of Infinity: To Save Kennedy", 1988, ["GOI.EXE"], "KENNEDY.BAT", Pc, Untried),
