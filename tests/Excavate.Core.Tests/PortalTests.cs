@@ -186,4 +186,30 @@ public sealed class PortalTests : IDisposable
         Assert.NotEqual(inside, Picture(machine));
         Assert.False(machine.Exited);
     }
+
+    [Fact]
+    public void Its_help_button_is_the_choice_named_homer_messages()
+    {
+        if (Start() is not { } machine)
+        {
+            return;
+        }
+
+        // into Central Processing, down to the bottom row's first button, two to the right,
+        // and chosen: Worldnet's help, from Homer
+        LogIn(machine);
+        foreach (char key in " vvvv>>")
+        {
+            // each key once the last has been drawn
+            Type(machine, key.ToString());
+            machine.Run(machine.InstructionsPerSecond * 4);
+        }
+
+        var highlighted = Picture(machine);
+        Type(machine, " ");
+        machine.Run(machine.InstructionsPerSecond * 8);
+        Assert.NotEqual(highlighted, Picture(machine));
+        Assert.False(machine.Exited);
+        Screenshot.WritePng(machine, Path.Combine(Shots, "portal-help.png"));
+    }
 }

@@ -139,7 +139,22 @@ or from the joystick:
 So the joystick is four arrows and Space, with no position of its own. The highlight moves from
 choice to choice in an order the game sets for each screen. On the map of Worldnet's dataspaces
 it's a grid of three rows of four, Up and Down a row and Left and Right a place; inside a
-dataspace, Up and Down go through its choices, the icons along the bottom among them.
+dataspace, Up and Down go through its choices, down to the row of buttons along the bottom.
+
+That row is four choices, one highlight each, and Left and Right go along it. Their names, in
+the table the game keeps of every choice's name, aren't what's printed on them:
+
+| Highlighted | Its name across the top |
+|---|---|
+| The square at the left, with FOCUS and the bar beside it | EXIT THIS LEVEL |
+| The four arrows | DATA STORAGE |
+| HELP | HOMER MESSAGES |
+| The square at the right | EXIT TO INTERFACE |
+
+There's no choice named HELP: the button is Homer's, Worldnet's guide, and choosing it brings
+up Worldnet's on-line help. So it's reached with Down to the bottom row, then Right twice.
+
+![Worldnet's help, from the button marked HELP](images/portal-help.png)
 
 ## The composite picture
 
