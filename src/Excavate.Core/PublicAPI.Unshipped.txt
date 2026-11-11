@@ -19,6 +19,7 @@ Excavate.Core.Machine.InsertCd(string! image) -> string!
 Excavate.Core.Machine.InsertFloppies(System.Collections.Generic.IReadOnlyList<string!>! images) -> void
 Excavate.Core.Machine.InstructionsPerSecond.get -> int
 Excavate.Core.Machine.InstructionsPerSecond.set -> void
+Excavate.Core.Machine.JoystickReadings.get -> long
 Excavate.Core.Machine.Joysticks.get -> int
 Excavate.Core.Machine.Joysticks.set -> void
 Excavate.Core.Machine.Load(string! program, string! arguments = "") -> void

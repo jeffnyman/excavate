@@ -212,4 +212,62 @@ public sealed class PortalTests : IDisposable
         Assert.False(machine.Exited);
         Screenshot.WritePng(machine, Path.Combine(Shots, "portal-help.png"));
     }
+
+    /// <summary>
+    /// Pushes the stick, or presses its button, until the game has read the port and a little
+    /// longer, then lets go, and gives the game time to draw: as the player does for the mouse.
+    /// </summary>
+    private static void Stick(Machine machine, int axis, int direction, bool button = false)
+    {
+        long readings = machine.JoystickReadings;
+        if (button)
+        {
+            machine.SetJoystickButton(0, true);
+        }
+        else
+        {
+            machine.SetJoystickAxis(axis, direction);
+        }
+
+        for (int wait = 0; wait < 100 && machine.JoystickReadings == readings; wait++)
+        {
+            machine.Run(machine.InstructionsPerSecond / 10);
+        }
+
+        machine.Run(machine.InstructionsPerSecond / 50);
+        machine.SetJoystickButton(0, false);
+        machine.SetJoystickAxis(axis, 0);
+        machine.Run(machine.InstructionsPerSecond * 4);
+    }
+
+    [Fact]
+    public void With_a_joystick_it_moves_by_the_stick_and_not_the_keys()
+    {
+        if (Start() is not { } machine)
+        {
+            return;
+        }
+
+        // a stick in the port, and yes to the question; its center is read then
+        machine.Joysticks = 1;
+        machine.Run(machine.InstructionsPerSecond * 20);
+        Type(machine, "EXCAVATE|");
+        machine.Run(machine.InstructionsPerSecond * 5);
+        Type(machine, "Y");
+        machine.Run(machine.InstructionsPerSecond * 60);
+
+        // Space on the keyboard does nothing now
+        var map = Picture(machine);
+        Type(machine, " ");
+        machine.Run(machine.InstructionsPerSecond * 4);
+        Assert.Equal(map, Picture(machine));
+
+        // the button goes into Central Processing, and the stick down moves the highlight
+        Stick(machine, 0, 0, button: true);
+        var inside = Picture(machine);
+        Assert.NotEqual(map, inside);
+        Stick(machine, 1, 1);
+        Assert.NotEqual(inside, Picture(machine));
+        Assert.False(machine.Exited);
+    }
 }

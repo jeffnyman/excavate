@@ -136,7 +136,16 @@ or from the joystick:
   least five counts more than the other, answers with the arrow for that way. Either button
   answers Space. On a PCjr (model byte FDh) it weighs the two axes a little differently.
 
-So the joystick is four arrows and Space, with no position of its own. The highlight moves from
+The answer to the joystick question is taken once and kept. Nothing checks that a stick is
+there: with none, the port's timers never run out, every reading is the same as the center
+read at the start, and the game waits for a move that never comes, the keyboard ignored.
+
+So the joystick is four arrows and Space, with no position of its own. In Excavate the mouse
+can be that joystick: the game port always has a stick for Portal, and once the mouse is
+captured, a short move of it (a twentieth of the picture) pushes the stick all the way that way,
+and its buttons are the stick's. The game may be drawing for a second or more before it reads
+the stick again, so each push and click is held until it has, then let go: one move of the
+mouse is one step of the highlight. The highlight moves from
 choice to choice in an order the game sets for each screen. On the map of Worldnet's dataspaces
 it's a grid of three rows of four, Up and Down a row and Left and Right a place; inside a
 dataspace, Up and Down go through its choices, down to the row of buttons along the bottom.

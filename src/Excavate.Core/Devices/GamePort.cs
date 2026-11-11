@@ -35,6 +35,9 @@ internal sealed class GamePort
     // when each axis's timer runs out, in emulated seconds
     private readonly double[] _ends = new double[4];
 
+    /// <summary>How many times a program has started a reading, by writing to the port.</summary>
+    public long Readings { get; private set; }
+
     /// <summary>How many sticks are connected: 0, 1 (A) or 2 (A and B).</summary>
     public int Sticks { get; set; }
 
@@ -47,6 +50,7 @@ internal sealed class GamePort
     /// <summary>A write, of any value: the four timers start now.</summary>
     public void Write(double now)
     {
+        Readings++;
         for (int axis = 0; axis < 4; axis++)
         {
             _ends[axis] = now + Constant + (SecondsPerOhm * Ohms * (_axes[axis] + 1));

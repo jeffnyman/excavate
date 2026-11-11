@@ -201,6 +201,12 @@ public sealed partial class Machine : ICpuBus
     /// </summary>
     public void SetJoystickAxis(int axis, float value) => _gamePort.SetAxis(axis & 3, value);
 
+    /// <summary>
+    /// How many times the program has started reading the joysticks, by writing to the game port:
+    /// a stick pushed and then let go is seen by the game only if it read the port in between.
+    /// </summary>
+    public long JoystickReadings => _gamePort.Readings;
+
     /// <summary>Presses or lets go of a joystick button: 0 and 1 are the first stick's, 2 and 3 the second's.</summary>
     public void SetJoystickButton(int button, bool down) => _gamePort.SetButton(button & 3, down);
 

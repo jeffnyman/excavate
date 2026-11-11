@@ -45,6 +45,9 @@ With no game named, a menu lists them. `--help` lists the options.
 - **The keyboard** is the PC's, key for key.
 - **The mouse:** a click in the window gives the game the mouse, and Ctrl+F10 takes it back.
 - **A gamepad** is the joystick. Plug it in before starting: games look for one as they start.
+- **In *Portal***, the mouse is a joystick too, for a game with none of its own: once it's
+  captured, a short move steps the highlight that way and a click chooses, if you said yes to
+  a joystick at the start.
 - **F11** is full screen, **Shift+F11** the pixel shape, **F12** full speed on and off, and
   **Pause** pauses.
 - **Ctrl+F5** saves the whole machine's state, and **Ctrl+F9** loads it back.

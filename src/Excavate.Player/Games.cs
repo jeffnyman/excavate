@@ -44,9 +44,13 @@ internal sealed record DiskSet(string FirstDisk, ExtraSectors[] Protection);
 /// <param name="Note">Where the game stands in Excavate, said in the list and the menu.</param>
 /// <param name="Video">The display adapter it was written for.</param>
 /// <param name="Disks">For a game played from its floppy disks, how it has them; otherwise null.</param>
+/// <param name="MouseJoystick">
+/// Whether the mouse is also its joystick: for a game with a joystick and no mouse, whose stick
+/// only ever says which way.
+/// </param>
 internal sealed record KnownGame(
     string Key, string Title, int Year, string[] Markers, string? Program, int Cycles, string Note,
-    VideoAdapter Video = VideoAdapter.Vga, DiskSet? Disks = null);
+    VideoAdapter Video = VideoAdapter.Vga, DiskSet? Disks = null, bool MouseJoystick = false);
 
 /// <summary>A game to play: its folder, the program in it to run, and how fast to run it.</summary>
 /// <param name="Folder">The game's folder, which becomes drive C:.</param>
@@ -89,9 +93,10 @@ internal static class Games
     public static readonly KnownGame[] Known =
     [
         // Portal: an 8088's pace, since it times its pauses by counting loops; its disk 1's
-        // track 9 had sectors 1 to 16, of which a dump keeps nine
+        // track 9 had sectors 1 to 16, of which a dump keeps nine; and its joystick, if you say
+        // you have one, is only ever four arrows and a button, which the mouse can be
         new("portal", "Portal", 1986, ["PORTAL.EXE"], @"A:\PORTAL.EXE", Pc, "new: it plays to Central Processing, and further is untried",
-            VideoAdapter.Cga, new DiskSet("PORTAL.EXE", [new ExtraSectors(0, 9, 0, 10, 16)])),
+            VideoAdapter.Cga, new DiskSet("PORTAL.EXE", [new ExtraSectors(0, 9, 0, 10, 16)]), MouseJoystick: true),
         new("metropolis", "Metropolis", 1987, ["METRO.SCR"], null, Tandy, "boots from its own disks, which Excavate doesn't do yet"),
         new("kennedy", "Guardians of Infinity: To Save Kennedy", 1988, ["GOI.EXE"], "KENNEDY.BAT", Pc, Untried),
         new("president", "The President Is Missing", 1988, ["PRES.EXE"], "PRES.EXE", Pc, Untried),

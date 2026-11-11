@@ -350,6 +350,7 @@ internal static class Program
                     Sound = sound,
                     Mouse = profile.Mouse ?? true,
                     MouseSpeed = (profile.MouseSpeed ?? 100) / 100.0,
+                    MouseJoystick = game.Known?.MouseJoystick ?? false,
                     StatePath = statePath,
                     Icon = GameIcons.For(game),
                 };

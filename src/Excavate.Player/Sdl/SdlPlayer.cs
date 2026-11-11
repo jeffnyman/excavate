@@ -25,6 +25,12 @@ internal sealed class PlayerOptions
     /// <summary>Whether the host's mouse is the machine's mouse, once a click in the window captures it.</summary>
     public bool Mouse { get; init; } = true;
 
+    /// <summary>
+    /// Whether the captured mouse is also a joystick, for a game with no mouse of its own: the game
+    /// port then has a stick even with no gamepad. See <see cref="MouseStick"/>.
+    /// </summary>
+    public bool MouseJoystick { get; init; }
+
     /// <summary>The mouse's speed: 1, and moving across the picture moves across the game's screen.</summary>
     public double MouseSpeed { get; init; } = 1;
 
@@ -77,6 +83,8 @@ internal sealed unsafe class SdlPlayer : IDisposable
     private readonly Dictionary<SDL_JoystickID, nint> _gamepads = [];
     private readonly float[] _stick = new float[2];
     private readonly int[] _dpad = new int[2];
+    private readonly bool[] _padButtons = new bool[4];
+    private readonly MouseStick _mouseStick = new();
 
     // the mouse's motion not yet passed on: the host's motion comes in fractions
     private float _mouseRestX, _mouseRestY;
@@ -125,6 +133,7 @@ internal sealed unsafe class SdlPlayer : IDisposable
 
         // gamepads already plugged in arrive as events: take them before the game looks for a joystick
         Pump();
+        UpdateJoystick();
 
         while (running && !_quit && (seconds is null || _machine.Time.TotalSeconds < seconds))
         {
@@ -218,6 +227,13 @@ internal sealed unsafe class SdlPlayer : IDisposable
         long due = (long)(_frames * (double)_machine.InstructionsPerSecond / FrameRate);
         bool running = _machine.Run(due - _instructions);
         _instructions = due;
+        if (_options.MouseJoystick)
+        {
+            _mouseStick.Frame(_machine.JoystickReadings);
+            UpdateAxes();
+            UpdateButtons();
+        }
+
         return running;
     }
 
@@ -284,6 +300,13 @@ internal sealed unsafe class SdlPlayer : IDisposable
                         _mouseRestX -= dx;
                         _mouseRestY -= dy;
                         _machine.MoveMouse(dx, dy);
+                        if (_options.MouseJoystick)
+                        {
+                            var (width, height) = _window.PictureInWindow;
+                            float speed = (float)_options.MouseSpeed;
+                            _mouseStick.Move(sdlEvent.motion.xrel / width * speed, sdlEvent.motion.yrel / height * speed, _machine.JoystickReadings);
+                            UpdateAxes();
+                        }
                     }
 
                     break;
@@ -551,6 +574,11 @@ internal sealed unsafe class SdlPlayer : IDisposable
         if (pcButton >= 0)
         {
             _machine.SetMouseButton(pcButton, down);
+            if (_options.MouseJoystick)
+            {
+                _mouseStick.Press(pcButton, down, _machine.JoystickReadings);
+                UpdateButtons();
+            }
         }
     }
 
@@ -568,17 +596,17 @@ internal sealed unsafe class SdlPlayer : IDisposable
         ShowStatus();
     }
 
-    /// <summary>The game port has a joystick while a gamepad is plugged in, unless the joystick is turned off.</summary>
+    /// <summary>
+    /// The game port has a joystick while a gamepad is plugged in, or always when the mouse is one,
+    /// unless the joystick is turned off.
+    /// </summary>
     private void UpdateJoystick()
     {
-        _machine.Joysticks = _options.Joystick && _gamepads.Count > 0 ? 1 : 0;
+        _machine.Joysticks = _options.Joystick && (_gamepads.Count > 0 || _options.MouseJoystick) ? 1 : 0;
         _stick[0] = _stick[1] = 0;
         _dpad[0] = _dpad[1] = 0;
-        for (int button = 0; button < 4; button++)
-        {
-            _machine.SetJoystickButton(button, false);
-        }
-
+        Array.Clear(_padButtons);
+        UpdateButtons();
         UpdateAxes();
     }
 
@@ -599,7 +627,8 @@ internal sealed unsafe class SdlPlayer : IDisposable
 
         if (index >= 0)
         {
-            _machine.SetJoystickButton(index, down);
+            _padButtons[index] = down;
+            UpdateButtons();
             return;
         }
 
@@ -645,11 +674,22 @@ internal sealed unsafe class SdlPlayer : IDisposable
         }
     }
 
+    /// <summary>The stick where the mouse pushes it, or else the d-pad, or else the left stick.</summary>
     private void UpdateAxes()
     {
         for (int axis = 0; axis < 2; axis++)
         {
-            _machine.SetJoystickAxis(axis, _dpad[axis] != 0 ? _dpad[axis] : _stick[axis]);
+            int mouse = axis == 0 ? _mouseStick.X : _mouseStick.Y;
+            _machine.SetJoystickAxis(axis, mouse != 0 ? mouse : _dpad[axis] != 0 ? _dpad[axis] : _stick[axis]);
+        }
+    }
+
+    /// <summary>A button is pressed while the gamepad's is, or the mouse's for the first two.</summary>
+    private void UpdateButtons()
+    {
+        for (int button = 0; button < 4; button++)
+        {
+            _machine.SetJoystickButton(button, _padButtons[button] || (button < 2 && _mouseStick.Button(button)));
         }
     }
 }
