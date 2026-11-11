@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>excavate</AssemblyName>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <!-- SDL3 ships native libraries for every platform; a desktop player does not need the Android
+       and iOS ones, which are most of the package -->
+  <Target Name="TrimMobileNatives" AfterTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="$([System.Text.RegularExpressions.Regex]::IsMatch('%(ResolvedFileToPublish.RelativePath)', '^runtimes[\/](android|ios)'))" />
+    </ItemGroup>
+  </Target>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Excavate.Player.Tests" />
+    <ProjectReference Include="..\Excavate.Core\Excavate.Core.csproj" />
+    <PackageReference Include="ppy.SDL3-CS" />
+  </ItemGroup>
+
+  <!-- the games' icons, and the player's own, for their windows: read by name, as Icons/portal.ico (none yet) -->
+  <ItemGroup>
+    <EmbeddedResource Include="Icons\*.ico" LogicalName="Icons/%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

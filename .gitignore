@@ -1,0 +1,17 @@
+bin/
+obj/
+*.user
+*.suo
+.vs/
+.idea/
+*.swp
+TestResults/
+artifacts/
+
+# the games are never in the repository: they're the player's own copies, kept outside it (in
+# ../_excavating while developing), and these catch a copy made by mistake
+*.iso
+*.ima
+*.img
+*.dat
+*.rom

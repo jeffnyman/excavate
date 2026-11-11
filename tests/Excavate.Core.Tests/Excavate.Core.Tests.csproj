@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Excavate.Core\Excavate.Core.csproj" />
+  </ItemGroup>
+</Project>

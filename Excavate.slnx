@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Excavate.Core/Excavate.Core.csproj" />
+    <Project Path="src/Excavate.Player/Excavate.Player.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Excavate.Core.Tests/Excavate.Core.Tests.csproj" />
+    <Project Path="tests/Excavate.Player.Tests/Excavate.Player.Tests.csproj" />
+  </Folder>
+</Solution>
