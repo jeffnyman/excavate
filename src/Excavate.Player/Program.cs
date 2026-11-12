@@ -60,6 +60,9 @@ internal static class Program
         bool forget = false;
         bool forgetFolder = false;
 
+        // the game's documents to show rather than play it: 0 for the list, -1 for all of them
+        int? documents = null;
+
         // the options a profile can keep, as given here: they win over the profile for this run
         var given = new Profile();
 
@@ -160,6 +163,21 @@ internal static class Program
                     break;
                 case "--headless":
                     headless = true;
+                    break;
+                case "--documents":
+                    // a number, or all, may follow; anything else is the game's name or an option
+                    documents = 0;
+                    if (i + 1 < args.Length && args[i + 1] == "all")
+                    {
+                        documents = -1;
+                        i++;
+                    }
+                    else if (i + 1 < args.Length && int.TryParse(args[i + 1], out int number))
+                    {
+                        documents = number > 0 ? number : throw new UsageException($"--documents needs a document's number, from 1, or all, not '{args[i + 1]}'");
+                        i++;
+                    }
+
                     break;
                 default:
                     if (args[i].StartsWith("--", StringComparison.Ordinal))
@@ -276,6 +294,11 @@ internal static class Program
         if (changed)
         {
             settings.Save();
+        }
+
+        if (documents is { } which)
+        {
+            return ShowDocuments(game, which);
         }
 
         bool sound = profile.Sound ?? true;
@@ -404,6 +427,49 @@ internal static class Program
         return Done;
     }
 
+    /// <summary>
+    /// A game's documents, read from its folder: a list of them (0), one by its number, or all of
+    /// them (-1).
+    /// </summary>
+    private static int ShowDocuments(Game game, int which)
+    {
+        if (game.Known?.Documents is not { } read)
+        {
+            throw new UsageException($"{game.Title} keeps no documents the player can read");
+        }
+
+        var documents = read(game.Folder);
+        if (which == 0)
+        {
+            Console.WriteLine($"{game.Title}: {documents.Count} documents; --documents <n> shows one, --documents all every one");
+            foreach (var document in documents)
+            {
+                Console.WriteLine($"{document.Number,3}  {document.Title}");
+            }
+
+            return Done;
+        }
+
+        if (which > documents.Count)
+        {
+            throw new UsageException($"{game.Title} has {documents.Count} documents, not {which}");
+        }
+
+        var shown = which < 0 ? documents : [documents[which - 1]];
+        for (int n = 0; n < shown.Count; n++)
+        {
+            if (n > 0)
+            {
+                Console.WriteLine();
+            }
+
+            Console.WriteLine($"--- {shown[n].Number}: {shown[n].Title}");
+            Console.Write(shown[n].Text);
+        }
+
+        return Done;
+    }
+
     /// <summary>What's set up: each game, where it is, how it's played, and where it stands.</summary>
     private static void List(Settings settings)
     {
@@ -469,6 +535,9 @@ internal static class Program
               --seconds <n>      stop after n seconds of the game's time
               --screenshot <f>   save the picture as a PNG when stopping
               --headless         no window: run --seconds seconds and stop
+              --documents [n]    list the documents a game keeps, rather than play it, or show the
+                                 one numbered n, or all of them (The President Is Missing's data
+                                 base, its Top Secret files included)
 
             playing:
               the keyboard is the PC's, key for key

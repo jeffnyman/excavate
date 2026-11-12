@@ -209,6 +209,20 @@ names of the database's documents, for anyone who looked at the program in a fil
 One of the game's own staff memos complains of people asking what the codes for the security
 files are.
 
+### Reading them without playing
+
+Excavate can show every document of the database, the Top Secret files included, from your
+copy of the game, without playing it:
+
+```
+excavate president --documents         the 14 documents, by number and title
+excavate president --documents 13       NSC 513324, "THE SUN RISES ASCAROTH"
+excavate president --documents all      every one
+```
+
+It reads `RECD.TBL` for where each starts, and undoes the rotation of `START.EXE`'s bytes. Its
+numbers count from 1, the table's entries from 0, so the Top Secret files are 13 and 14.
+
 ### Numbered access codes
 
 Lists online give numbers as the access codes for these files: 48038 for NSC 513324 and 708021
