@@ -233,14 +233,11 @@ internal static class Program
         }
         else if (Games.Named(gameName) is { } known)
         {
-            game = Games.In(
-                settings.FolderOf(known)
-                    ?? throw new FileNotFoundException($"{known.Title} isn't set up yet: run excavate \"<its folder>\" once, or drop the folder on the menu's window"),
-                known);
-            if (program is not null)
-            {
-                throw new UsageException($"{gameName} names its program already");
-            }
+            string folder = settings.FolderOf(known)
+                ?? throw new FileNotFoundException($"{known.Title} isn't set up yet: run excavate \"<its folder>\" once, or drop the folder on the menu's window");
+
+            // the game's own program, or another of its folder's, such as its setup
+            game = program is null ? Games.In(folder, known) : Games.Find(folder, program);
         }
         else
         {
@@ -324,6 +321,12 @@ internal static class Program
             Console.WriteLine($"excavate: disks {names}; Ctrl+F1 to Ctrl+F{Math.Min(disks.Length, 4)} put one in drive A:{prompts}");
         }
 
+        // what a crack changed in the game's programs, put back as each is loaded
+        foreach (var crack in game.Known?.Cracks ?? [])
+        {
+            machine.RestoreProgramBytes(crack.Program, crack.Offset, crack.Cracked, crack.Original);
+        }
+
         machine.Load(game.Program, arguments);
         statePath ??= Games.StateFile(game);
         if (resume)
@@ -342,7 +345,7 @@ internal static class Program
         Console.WriteLine($"excavate: {game.Title}, {game.Program} at {machine.InstructionsPerSecond / 1000} cycles; saves in {saves}");
         if (game.Known is { } about)
         {
-            Console.WriteLine($"excavate: {about.Title} is {about.Note}");
+            Console.WriteLine($"excavate: {about.Title}: {about.Note}");
         }
 
         bool running;
@@ -430,7 +433,8 @@ internal static class Program
                                  or its folder, or its program. A folder given once is remembered,
                                  so the short name finds it after. With no game, a menu in a
                                  window lists them.
-              [program]          another program in the folder
+              [program]          another program in the game's folder, such as its setup
+                                 (excavate president SU.EXE)
 
             options:
               --list             what's set up: each game's folder, and how it's played

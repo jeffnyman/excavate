@@ -43,6 +43,7 @@ Excavate.Core.Machine.ReadSamples(System.Span<short> samples) -> int
 Excavate.Core.Machine.ReleaseKey(byte scanCode, bool extended = false) -> void
 Excavate.Core.Machine.ReleaseKeys() -> void
 Excavate.Core.Machine.Render(System.Span<uint> pixels) -> void
+Excavate.Core.Machine.RestoreProgramBytes(string! program, int offset, byte[]! cracked, byte[]! original) -> void
 Excavate.Core.Machine.RestoreSectors(int disk, int cylinder, int head, int first, int last) -> void
 Excavate.Core.Machine.Run(long instructions) -> bool
 Excavate.Core.Machine.SaveState(System.IO.Stream! stream) -> void

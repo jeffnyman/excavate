@@ -160,7 +160,7 @@ internal sealed partial class DosServices(Machine machine, DosDrive drive)
             throw new NotSupportedException($"{program} isn't an MZ executable; .COM programs aren't loaded yet.");
         }
 
-        LoadExe(image, Path.GetFileNameWithoutExtension(program), environmentSegment, arguments);
+        LoadExe(image, program, environmentSegment, arguments);
         machine.Trace($"loaded {dosPath} at {_psp:X4}h, {arguments}");
     }
 
@@ -169,8 +169,9 @@ internal sealed partial class DosServices(Machine machine, DosDrive drive)
     /// the memory it needs beyond the image, and its starting CS:IP and SS:SP, all relative to
     /// the segment the image lands at, just past the 256-byte program segment prefix.
     /// </summary>
-    private void LoadExe(byte[] file, string name, ushort environment, string arguments)
+    private void LoadExe(byte[] file, string program, ushort environment, string arguments)
     {
+        string name = Path.GetFileNameWithoutExtension(program);
         ushort Word(int offset) => BinaryPrimitives.ReadUInt16LittleEndian(file.AsSpan(offset));
 
         int lastPage = Word(0x02), pages = Word(0x04), relocations = Word(0x06), headerParagraphs = Word(0x08);
@@ -202,6 +203,8 @@ internal sealed partial class DosServices(Machine machine, DosDrive drive)
             ushort at = (ushort)(loadSegment + segment);
             machine.WriteWord(at, offset, (ushort)(machine.ReadWord(at, offset) + loadSegment));
         }
+
+        machine.ProgramLoaded(program, loadSegment, imageStart, imageSize);
 
         SetOwner(environment, psp, "");
         SetOwner(psp, psp, name);

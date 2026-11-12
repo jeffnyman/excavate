@@ -34,6 +34,17 @@ internal sealed record DiskPrompt(int KeyWait, int Caller, int Disk = 0, int Dig
 internal sealed record DiskSet(string FirstDisk, ExtraSectors[] Protection, DiskPrompt[]? Prompts = null);
 
 /// <summary>
+/// Bytes a crack changed in one of a game's programs, where the copies there are came cracked:
+/// the player puts the original ones back in memory each time the program is loaded, so it
+/// runs as it shipped.
+/// </summary>
+/// <param name="Program">The program's file name.</param>
+/// <param name="Offset">Where the bytes are in its file.</param>
+/// <param name="Cracked">The bytes the crack wrote.</param>
+/// <param name="Original">The bytes it shipped with.</param>
+internal sealed record CrackedBytes(string Program, int Offset, byte[] Cracked, byte[] Original);
+
+/// <summary>
 /// A game the player knows by a short name: what it is, how its folder is recognized, and what
 /// to run in it.
 /// </summary>
@@ -60,9 +71,10 @@ internal sealed record DiskSet(string FirstDisk, ExtraSectors[] Protection, Disk
 /// Whether the mouse is also its joystick: for a game with a joystick and no mouse, whose stick
 /// only ever says which way.
 /// </param>
+/// <param name="Cracks">What a crack changed in its programs, to put back.</param>
 internal sealed record KnownGame(
     string Key, string Title, int Year, string[] Markers, string? Program, int Cycles, string Note,
-    VideoAdapter Video = VideoAdapter.Vga, DiskSet? Disks = null, bool MouseJoystick = false);
+    VideoAdapter Video = VideoAdapter.Vga, DiskSet? Disks = null, bool MouseJoystick = false, CrackedBytes[]? Cracks = null);
 
 /// <summary>A game to play: its folder, the program in it to run, and how fast to run it.</summary>
 /// <param name="Folder">The game's folder, which becomes drive C:.</param>
@@ -117,7 +129,11 @@ internal static class Games
             MouseJoystick: true),
         new("metropolis", "Metropolis", 1987, ["METRO.SCR"], null, Tandy, "boots from its own disks, which Excavate doesn't do yet"),
         new("kennedy", "Guardians of Infinity: To Save Kennedy", 1988, ["GOI.EXE"], "KENNEDY.BAT", Pc, Untried),
-        new("president", "The President Is Missing", 1988, ["PRES.EXE"], "PRES.EXE", Pc, Untried),
+        // The President Is Missing: its setup, SU.EXE, comes cracked to take any name for the
+        // supervisor's, the jump that turns a wrong one away made two NOPs; the jump goes back,
+        // and setup takes only the name it shipped expecting, William H. Sullens
+        new("president", "The President Is Missing", 1988, ["PRES.EXE"], "PRES.EXE", Pc, "logs on and shows its files; not yet played through",
+            Cracks: [new CrackedBytes("SU.EXE", 0xAB9, [0x90, 0x90], [0x75, 0x03])]),
         new("guilty", "Presumed Guilty", 1989, ["PGMAIN.EXE"], "PGMAIN.EXE", Pc, Untried),
         new("omnicron", "The Omnicron Conspiracy", 1989, ["OMNICRON.EXE"], "OMNICRON.EXE", At, Untried),
         new("countdown", "Countdown", 1990, ["COUNT.EXE"], "COUNT.EXE", At, Untried),

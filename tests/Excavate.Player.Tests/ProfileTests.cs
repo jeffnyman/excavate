@@ -181,6 +181,23 @@ public sealed class ProfileTests : IDisposable
     }
 
     [Fact]
+    public void Another_program_in_a_games_folder_is_run_by_the_games_short_name()
+    {
+        // SETUP.EXE leaves a file named RAN behind: push cs; pop ds; mov dx, 10h; mov ah, 3Ch;
+        // xor cx, cx; int 21h; mov ax, 4C00h; int 21h; "RAN"
+        File.WriteAllBytes(Path.Combine(Countdown, "SETUP.EXE"), Exe(
+        [
+            0x0E, 0x1F, 0xBA, 0x10, 0x00, 0xB4, 0x3C, 0x31, 0xC9, 0xCD, 0x21, 0xB8, 0x00, 0x4C, 0xCD, 0x21,
+            .. "RAN\0"u8,
+        ]));
+        Assert.Equal(0, Run(Countdown));
+
+        Assert.Equal(0, Run("countdown", "SETUP.EXE"));
+        Assert.True(File.Exists(Path.Combine(Saves, "RAN")));
+        Assert.Contains("no NOTHERE.EXE", Assert.Throws<FileNotFoundException>(() => Run("countdown", "NOTHERE.EXE")).Message);
+    }
+
+    [Fact]
     public void Options_are_kept_only_when_asked_and_forgotten_when_asked()
     {
         Assert.Equal(0, Run(Countdown, "--cycles", "5000"));

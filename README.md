@@ -15,7 +15,7 @@ the time. Those notes are in [docs](docs/), a game at a time.
 | *Portal* | 1986 | `portal` | Plays through to its end, from its disk images; there's a [walkthrough](docs/portal-walkthrough.md) |
 | *Metropolis* | 1987 | `metropolis` | Recognized; boots from its own disks, which Excavate doesn't do yet |
 | *Guardians of Infinity: To Save Kennedy* | 1988 | `kennedy` | Not yet tried |
-| *The President Is Missing* | 1988 | `president` | Not yet tried |
+| *The President Is Missing* | 1988 | `president` | Logs on and shows its files, on the EGA or CGA; [notes](docs/president.md). Its setup is `excavate president SU.EXE` |
 | *Presumed Guilty* | 1989 | `guilty` | Not yet tried |
 | *The Omnicron Conspiracy* | 1989 | `omnicron` | Not yet tried |
 | *Countdown* | 1990 | `countdown` | Not yet tried |
