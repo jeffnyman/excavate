@@ -26,7 +26,7 @@ namespace Excavate.Core.Devices;
 /// <para>
 /// The picture is always 640 by 400: each line is drawn twice, and in the 320-wide modes each
 /// pixel twice across, so every mode has the same shape on screen as it had on the monitor.
-/// Text modes are drawn black for now.
+/// Text is drawn in RGBI, with the 8 by 8 font, on either monitor.
 /// </para>
 /// </remarks>
 internal sealed class Cga
@@ -38,6 +38,7 @@ internal sealed class Cga
     public const int Height = 400;
 
     private const int TotalLines = 262;
+
     private const int VisibleLines = 200;
 
     // the vertical retrace starts after row 28 of eight lines and lasts the 6845's fixed 16 lines
@@ -50,6 +51,10 @@ internal sealed class Cga
         0x000000, 0x0000AA, 0x00AA00, 0x00AAAA, 0xAA0000, 0xAA00AA, 0xAA5500, 0xAAAAAA,
         0x555555, 0x5555FF, 0x55FF55, 0x55FFFF, 0xFF5555, 0xFF55FF, 0xFFFF55, 0xFFFFFF,
     ];
+
+    // the font the character generator has, and the colors text is drawn in
+    private static readonly byte[] Font = RomFont.Glyphs.ToArray();
+    private static readonly uint[] TextColors = [.. Rgbi.Select(color => 0xFF00_0000 | color)];
 
     // the BIOS's mode control values for modes 0 to 7, and its 6845 tables for 40-column text,
     // 80-column text and graphics
@@ -199,15 +204,21 @@ internal sealed class Cga
     // ---- drawing -----------------------------------------------------------------------------
 
     /// <summary>
-    /// Draws the picture as 640 by 400 pixels of 32-bit ARGB: blank with the video turned off,
-    /// black in the text modes for now.
+    /// Draws the picture as 640 by 400 pixels of 32-bit ARGB, as it is at <see cref="Time"/>:
+    /// blank with the video turned off.
     /// </summary>
     public void Render(Span<uint> pixels)
     {
         var picture = pixels[..(Width * Height)];
-        if (!Enabled || !GraphicsMode)
+        if (!Enabled)
         {
             picture.Fill(0xFF00_0000);
+            return;
+        }
+
+        if (!GraphicsMode)
+        {
+            RenderText(picture);
             return;
         }
 
@@ -251,6 +262,34 @@ internal sealed class Cga
             line.CopyTo(picture.Slice(y * 2 * Width, Width));
             line.CopyTo(picture.Slice(((y * 2) + 1) * Width, Width));
         }
+    }
+
+    /// <summary>
+    /// Draws a text mode as the 6845 has it set up: the characters across (40 or 80, by the mode
+    /// control register), the rows, the lines in a character, where the screen starts, and the
+    /// cursor. Characters blink, and the cursor with them at twice the rate, when the mode control
+    /// register says so; otherwise the attribute's top bit brightens the background.
+    /// </summary>
+    private void RenderText(Span<uint> picture)
+    {
+        picture.Fill(0xFF00_0000);
+        int widen = (_modeControl & 0x01) != 0 ? 1 : 2;
+        int height = Math.Max(1, (_crtc[0x09] & 0x1F) + 1);
+        int columns = Math.Clamp((int)_crtc[0x01], 1, 80 / widen);
+        int rows = Math.Clamp((int)_crtc[0x06], 1, VisibleLines / height);
+        int start = ((_crtc[0x0C] << 8) | _crtc[0x0D]) * 2;
+        double frame = Time * FrameRate;
+        bool cursorShown = ((long)(frame / 8) & 1) == 0 && (_crtc[0x0A] & 0x60) != 0x20;
+        int cursor = cursorShown ? (((_crtc[0x0E] << 8) | _crtc[0x0F]) * 2) & 0x3FFF : -1;
+        var font = height == 8 ? Font : RomFont.Glyphs14.ToArray();
+        TextScreen.Draw(
+            _memory,
+            new TextScreen.Layout(start, columns, rows, columns * 2, font, Math.Min(height, font.Length / 256)),
+            new TextScreen.Look(TextColors, (_modeControl & 0x20) != 0, ((long)(frame / 16) & 1) == 0, cursor, _crtc[0x0A] & 0x1F, _crtc[0x0B] & 0x1F),
+            picture,
+            Width,
+            widen,
+            2);
     }
 
     /// <summary>

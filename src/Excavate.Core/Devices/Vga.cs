@@ -3,8 +3,8 @@ namespace Excavate.Core.Devices;
 /// <summary>
 /// The VGA: 256 KB of video memory in four planes, the registers that decide how the processor
 /// reaches that memory and how it's shown, and the DAC, the palette of 256 colors each pixel
-/// indexes. Only the graphics modes with 256 colors are drawn: mode 13h, and the unchained
-/// variants of it known as Mode X.
+/// indexes. The graphics modes drawn are those with 256 colors: mode 13h, and the unchained
+/// variants of it known as Mode X. The other modes are drawn as text.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -53,6 +53,11 @@ internal sealed class Vga
     private byte _pelMask = 0xFF;
 
     private uint _latches;
+
+    // the fonts the BIOS loads for each height of character
+    private static readonly byte[] Font8 = RomFont.Glyphs.ToArray();
+    private static readonly byte[] Font14 = RomFont.Glyphs14.ToArray();
+    private static readonly byte[] Font16 = RomFont.Glyphs16.ToArray();
 
     public Vga() => SetMode(3, clear: true);
 
@@ -309,7 +314,8 @@ internal sealed class Vga
 
     /// <summary>
     /// Sets a mode as the video BIOS does: its register values, the default palette, and,
-    /// unless asked not to, cleared memory. Modes other than 13h are set up as 80 by 25 text.
+    /// unless asked not to, cleared memory. Modes other than 13h are set up as 25 rows of
+    /// text, 40 across for modes 0 and 1 and 80 for the rest, in characters of 16 lines.
     /// </summary>
     public void SetMode(int mode, bool clear)
     {
@@ -338,10 +344,13 @@ internal sealed class Vga
         {
             byte[] sequencer = [0x03, 0x00, 0x03, 0x00, 0x02];
             sequencer.CopyTo(_sequencer, 0);
-            _crtc[0x01] = 0x4F;
+            bool narrow = mode is 0 or 1;
+            _crtc[0x01] = (byte)(narrow ? 0x27 : 0x4F);
             _crtc[0x09] = 0x0F;
+            _crtc[0x0A] = 0x0D;  // the cursor: the character's last two lines
+            _crtc[0x0B] = 0x0E;
             _crtc[0x12] = 0x8F;
-            _crtc[0x13] = 0x28;
+            _crtc[0x13] = (byte)(narrow ? 0x14 : 0x28);
             _graphics[8] = 0xFF;
             _miscellaneous = 0x67;
         }
@@ -423,22 +432,22 @@ internal sealed class Vga
         }
     }
 
-    /// <summary>Draws the picture as 32-bit ARGB pixels. Text modes are drawn black for now.</summary>
+    /// <summary>Draws the picture as 32-bit ARGB pixels, as it is at <see cref="Time"/>.</summary>
     public void Render(Span<uint> pixels)
     {
         var (width, height) = Size;
-        if (Mode != 0x13)
-        {
-            pixels[..(width * height)].Fill(0xFF00_0000);
-            return;
-        }
-
         Span<uint> palette = stackalloc uint[256];
         for (int i = 0; i < 256; i++)
         {
             static uint Eight(byte six) => (uint)((six << 2) | (six >> 4));
             int c = (i & _pelMask) * 3;
             palette[i] = 0xFF00_0000 | (Eight(_dac[c]) << 16) | (Eight(_dac[c + 1]) << 8) | Eight(_dac[c + 2]);
+        }
+
+        if (Mode != 0x13)
+        {
+            RenderText(pixels[..(width * height)], palette);
+            return;
         }
 
         int start = (_crtc[0x0C] << 8) | _crtc[0x0D];
@@ -453,5 +462,39 @@ internal sealed class Vga
                 pixels[(y * width) + x] = palette[_memory[index]];
             }
         }
+    }
+
+    /// <summary>
+    /// Draws a text mode as the registers have it: the characters across and the lines in each
+    /// (with the font of that height), where the screen starts and how far apart its rows are,
+    /// the 16 colors through the attribute controller's palette, and the cursor. Characters
+    /// blink, and the cursor at twice the rate, when the attribute controller says so.
+    /// </summary>
+    private void RenderText(Span<uint> picture, ReadOnlySpan<uint> palette)
+    {
+        picture.Fill(0xFF00_0000);
+        int widen = Mode is 0 or 1 ? 2 : 1;
+        int height = (_crtc[0x09] & 0x1F) + 1;
+        var font = height <= 8 ? Font8 : height <= 14 ? Font14 : Font16;
+        int columns = Math.Clamp(_crtc[0x01] + 1, 1, 80 / widen);
+        int rows = VisibleLines / height;
+        var colors = new uint[16];
+        for (int i = 0; i < 16; i++)
+        {
+            colors[i] = palette[_attribute[i] & 0x3F];
+        }
+
+        int start = ((_crtc[0x0C] << 8) | _crtc[0x0D]) * 2;
+        double frame = Time * FrameRate;
+        bool cursorShown = ((long)(frame / 8) & 1) == 0 && (_crtc[0x0A] & 0x20) == 0;
+        int cursor = cursorShown ? (((_crtc[0x0E] << 8) | _crtc[0x0F]) * 2) & 0x7FFF : -1;
+        TextScreen.Draw(
+            _text,
+            new TextScreen.Layout(start, columns, rows, _crtc[0x13] * 4, font, Math.Min(height, font.Length / 256)),
+            new TextScreen.Look(colors, (_attribute[0x10] & 0x08) != 0, ((long)(frame / 16) & 1) == 0, cursor, _crtc[0x0A] & 0x1F, _crtc[0x0B] & 0x1F),
+            picture,
+            640,
+            widen,
+            1);
     }
 }

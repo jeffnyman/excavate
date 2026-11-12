@@ -160,16 +160,19 @@ public sealed partial class Machine : ICpuBus
 
     /// <summary>
     /// Draws the picture the display shows, <see cref="DisplayWidth"/> by <see cref="DisplayHeight"/>
-    /// pixels of 32-bit ARGB, row by row. Text modes are drawn black for now.
+    /// pixels of 32-bit ARGB, row by row, as it is at the machine's time: blinking text and the
+    /// cursor follow it.
     /// </summary>
     public void Render(Span<uint> pixels)
     {
         if (_cga is null)
         {
+            _vga.Time = Seconds;
             _vga.Render(pixels);
         }
         else
         {
+            _cga.Time = Seconds;
             _cga.Render(pixels);
         }
     }

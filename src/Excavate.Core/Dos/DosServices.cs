@@ -438,6 +438,11 @@ internal sealed partial class DosServices(Machine machine, DosDrive drive)
     // the scan code still to come after the zero that DOS gives for a key with no character
     private byte? _extendedKey;
 
+    // the line being typed for function 0Ah, kept in the program's buffer: its length so far,
+    // and whether one is being typed
+    private int _lineLength;
+    private bool _lineTyping;
+
     private void Ok() => machine.SetReturnCarry(false);
 
     private void Fail(int error)
@@ -494,6 +499,7 @@ internal sealed partial class DosServices(Machine machine, DosDrive drive)
                 }
 
                 break;
+            case 0x0A: ReadLine(); break;
             case 0x0B:
                 // whether a key is waiting
                 cpu.Al = _extendedKey is not null || machine.FromBuffer(take: false) is not null ? (byte)0xFF : (byte)0;
@@ -748,6 +754,78 @@ internal sealed partial class DosServices(Machine machine, DosDrive drive)
     }
 
     /// <summary>
+    /// Function 0Ah, buffered input: a line typed into the buffer at DS:DX, whose first byte is
+    /// the most it holds, Enter's carriage return included. The keys are echoed as they come,
+    /// Backspace takes one back, Escape the whole line, and keys with no character are ignored.
+    /// At Enter, the second byte gets the line's length and the carriage return follows it.
+    /// The call repeats until then, as reading a key does.
+    /// </summary>
+    private void ReadLine()
+    {
+        var cpu = _registers;
+        int room = machine.ReadByte(cpu.Ds, cpu.Dx);
+        if (room == 0)
+        {
+            return;
+        }
+
+        if (!_lineTyping)
+        {
+            _lineTyping = true;
+            _lineLength = 0;
+            machine.Trace($"21/0A read a line, up to {room - 1} characters, into {cpu.Ds:X4}:{cpu.Dx:X4}");
+        }
+
+        while (NextKey() is { } key)
+        {
+            switch (key)
+            {
+                case 0:
+                    // a key with no character: its scan code, which comes next, is dropped
+                    NextKey();
+                    break;
+                case 0x0D:
+                    machine.WriteByte(cpu.Ds, cpu.Dx + 1u, (byte)_lineLength);
+                    machine.WriteByte(cpu.Ds, cpu.Dx + 2u + (uint)_lineLength, 0x0D);
+                    ConsoleOut('\r');
+                    _lineTyping = false;
+                    return;
+                case 0x08:
+                    if (_lineLength > 0)
+                    {
+                        _lineLength--;
+                        ConsoleOut('\b');
+                        ConsoleOut(' ');
+                        ConsoleOut('\b');
+                    }
+
+                    break;
+                case 0x1B:
+                    for (; _lineLength > 0; _lineLength--)
+                    {
+                        ConsoleOut('\b');
+                        ConsoleOut(' ');
+                        ConsoleOut('\b');
+                    }
+
+                    break;
+                default:
+                    // one byte is kept for the carriage return
+                    if (_lineLength < room - 1)
+                    {
+                        machine.WriteByte(cpu.Ds, cpu.Dx + 2u + (uint)_lineLength, key);
+                        _lineLength++;
+                        ConsoleOut((char)key);
+                    }
+
+                    break;
+            }
+        }
+
+        machine.RepeatInterrupt();
+    }
+
+    /// <summary>
     /// The next character from the keyboard, or null when none is waiting. A key with no
     /// character (an arrow, a function key) comes as two: a zero, then its scan code at the next
     /// call, as DOS gives them.
@@ -788,6 +866,8 @@ internal sealed partial class DosServices(Machine machine, DosDrive drive)
 
     private void ConsoleOut(char c)
     {
+        // to the screen, and a line at a time to the log
+        machine.ConsoleCharacter(c);
         if (c == '\n')
         {
             FlushConsole();

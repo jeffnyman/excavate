@@ -12,10 +12,10 @@ public sealed partial class Machine
     // the vectors answered in C#: the BIOS's, DOS's and the mouse driver's (EMS installs its own)
     private static readonly byte[] Services = [0x10, 0x11, 0x12, 0x13, 0x15, 0x16, 0x1A, 0x20, 0x21, 0x2F, 0x33];
 
-    // the BIOS's timer and keyboard interrupt handlers, past the stubs, and its system
+    // the BIOS's keyboard and timer interrupt handlers, past the stubs, and its system
     // configuration table
-    private const ushort TimerHandler = 0x0500;
     private const ushort KeyboardHandler = 0x0510;
+    private const ushort TimerHandler = 0x05C0;
     private const ushort ConfigurationTable = 0x0540;
 
     // the mouse driver's handler for IRQ 12, and where it keeps the program's event handler
@@ -57,9 +57,25 @@ public sealed partial class Machine
         }
 
         // the hardware interrupts: IRQ 0, the timer, counts the time of day and calls INT 1Ch,
-        // the hook programs are meant to use; the rest only end the interrupt, on both
-        // controllers for the second's IRQs (8 to 15, vectors 70h to 77h)
-        WriteRom(bios + TimerHandler, [0x0F, 0xFF, 0x08, 0xCD, 0x1C, 0xCF]);
+        // the hook programs are meant to use, as IBM's BIOS does: with DS, AX and DX kept
+        // around it, and DS on the BIOS's data. A hook that changes AX before saving it (The
+        // President Is Missing's does) leaves the program it interrupted as it was. The rest
+        // only end the interrupt, on both controllers for the second's IRQs (8 to 15, vectors
+        // 70h to 77h).
+        WriteRom(bios + TimerHandler,
+        [
+            0x1E,               // push ds
+            0x50,               // push ax
+            0x52,               // push dx
+            0x0F, 0xFF, 0x08,   // the tick, in C#
+            0xB8, 0x40, 0x00,   // mov ax,40h
+            0x8E, 0xD8,         // mov ds,ax
+            0xCD, 0x1C,         // int 1Ch
+            0x5A,               // pop dx
+            0x58,               // pop ax
+            0x1F,               // pop ds
+            0xCF,               // iret
+        ]);
         SetVector(0x08, BiosSegment, TimerHandler);
         foreach (int vector in Enumerable.Range(0x0A, 6).Concat(Enumerable.Range(0x70, 8)))
         {
@@ -183,6 +199,11 @@ public sealed partial class Machine
             return;
         }
 
+        if (TextService())
+        {
+            return;
+        }
+
         switch (Ah)
         {
             case 0x00:
@@ -192,27 +213,11 @@ public sealed partial class Machine
                 _vga.SetMode(mode, clear: (Al & 0x80) == 0);
                 WriteByte(0x40, 0x49, (byte)mode);
                 WriteWord(0x40, 0x4A, (ushort)(mode is 0 or 1 or 0x13 ? 40 : 80));
+                ResetText(mode);
                 Trace($"10/00 set video mode {mode:X2}h");
                 break;
             }
 
-            case 0x01: break; // cursor shape
-            case 0x02: break; // cursor position
-            case 0x03: SetCx(0x0607); SetDx(0); break;
-            case 0x05: break; // display page
-            case 0x06:
-            case 0x07:
-                break; // scroll a window
-            case 0x08: SetAx(0x0720); break;
-            case 0x09:
-            case 0x0A:
-            case 0x0E:
-                Trace($"10/{Ah:X2} text '{(char)Al}'");
-                break;
-            case 0x0F:
-                SetAx((ReadWord(0x40, 0x4A) << 8) | VideoMode);
-                Cpu.Ebx &= 0xFFFF_00FF;
-                break;
             case 0x10: PaletteService(); break;
             case 0x11:
                 if (Al == 0x30)
@@ -268,6 +273,7 @@ public sealed partial class Machine
                 WriteWord(0x40, 0x4C, (ushort)(cga.Mode is >= 4 and <= 6 ? 0x4000 : cga.Mode is 0 or 1 ? 0x800 : 0x1000));
                 WriteByte(0x40, 0x65, cga.ModeControl);
                 WriteByte(0x40, 0x66, cga.ColorSelect);
+                ResetText(cga.Mode);
                 Trace($"10/00 set video mode {mode:X2}h (CGA)");
                 return true;
             }
@@ -473,7 +479,9 @@ public sealed partial class Machine
                 Trace($"16/03 typematic rate {Cpu.Ebx & 0xFFFF:X4}h");
                 break;
             default:
-                throw new NotSupportedException($"INT 16h function {Ah:X2}h isn't provided.");
+                // a function the AT's BIOS doesn't have returns with nothing changed, as there
+                Trace($"16/{Ah:X2} not a function of the BIOS");
+                break;
         }
     }
 
@@ -489,6 +497,13 @@ public sealed partial class Machine
                 SetDx(ReadWord(0x40, 0x6C));
                 SetAl(ReadByte(0x40, 0x70));
                 WriteByte(0x40, 0x70, 0);
+                break;
+            case 0x01:
+                // set the tick count, from CX:DX, which clears the midnight flag
+                WriteWord(0x40, 0x6E, (ushort)Cpu.Ecx);
+                WriteWord(0x40, 0x6C, (ushort)Cpu.Edx);
+                WriteByte(0x40, 0x70, 0);
+                Trace($"1A/01 tick count set to {(ushort)Cpu.Ecx:X4}{(ushort)Cpu.Edx:X4}h");
                 break;
             case 0x02:
                 SetCx((Bcd(now.Hour) << 8) | Bcd(now.Minute));

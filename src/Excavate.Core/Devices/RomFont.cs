@@ -7,7 +7,7 @@ namespace Excavate.Core.Devices;
 /// modes from, and where games of the CGA's time read it from directly to draw their own.
 /// Taken from DOSBox Staging's <c>int10_memory.cpp</c>.
 /// </summary>
-internal static class RomFont
+internal static partial class RomFont
 {
     /// <summary>Where the BIOS keeps the first 128 characters, at F000:FA6Eh.</summary>
     public const uint Address = 0xF_FA6E;
