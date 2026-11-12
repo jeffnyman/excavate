@@ -19,6 +19,8 @@ The game ran from a hard disk, copied there from its floppies. The copy here, eX
 | `SA` | The profile: your code name, your supervisor's name, and the rest you gave setup |
 | `SA.B` | The profile as it shipped, before setup |
 | `*.FIL`, `*.TBL` | The game's messages and its tables of them, with `*.TBB` copies of the tables as they shipped |
+| `START.EXE` | Not a program: the database's documents, Top Secret files included; see below |
+| `RECD.TBL` | Where each document starts in `START.EXE` |
 | `MUG001.PCC` to `MUG038.PCC` | The dossiers' mugshots |
 | `PHOTO00.PCC` to `PHOTO07.PCC` | The photographs |
 | `MUG.TXT`, `GUIDE.TXT`, `PROSEC.TXT` | The dossiers' text, the operations guide, and the prosecutor's summary |
@@ -152,3 +154,68 @@ eXoDOS's copy has a curious sign of this clock. Many of its files are dated June
 the message tables and their `.TBB` copies, `AGENT.FIL` and `AGENT.FIB`, `START.EXE`, and
 `R-PIM.COM` itself. That's the story's first day. It suggests the PC they were last written
 on still had the game's date.
+
+## The Top Secret files
+
+*This section names the codes and the files they open. If you'd rather find them by playing,
+skip it.*
+
+The game never tells you whether you've solved the case: the epilogue in the box asks you to
+mail your evidence to Cosmi, with a stamped envelope, for the verdict. But it does hold the
+story's answer. The database has a section, TOP SECRET - LIMITED ACCESS, that asks for a
+security code. Paul Norman, who conceived the game, is reported to have said since that these files hold
+the answer to the mystery.
+
+### Where the documents are
+
+All the database's documents are in `START.EXE`, which isn't a program. It's 34,130 bytes of
+text, the documents one after another, each starting with a `^`, and every byte rotated right
+by one bit. A carriage return (0Dh) is stored as 86h, a space (20h) as 10h, an A (41h) as A0h.
+The message files (`BULLMSG.FIL`, `CADMSG.FIL`, `MEMO.FIL`, `OBJMSG.FIL`, `OBJNDX.FIL` and
+`SDMSG.FIL`) use the same encoding; `KEYFILE.FIL` is plain text. Named as a program,
+the file looks like nothing worth opening, and a search of the disk for a word in it finds
+nothing.
+
+`RECD.TBL` holds 20 two-byte offsets into `START.EXE`: 14 documents, each just past its `^`,
+and six of `|` filler. The game opens `START.EXE`, seeks to a document's offset, and shows it
+from there. The last two documents are the Top Secret files:
+
+| Entry | Offset | The file |
+|---|---|---|
+| 12 | 5EC2h | NSC 513324, headed "THE SUN RISES ASCAROTH" |
+| 13 | 788Fh | Security file CIA 601542, headed "THE BLACK FOG IS LIFTING" |
+
+### The security code
+
+The codes are those two headings. The game prints "ENTER SECURITY CODE (ALL CAPS)", reads a
+line through DOS (INT 21h function 0Ah), and compares it with each phrase in turn:
+
+```
+THE SUN RISES ASCAROTH      opens NSC 513324
+THE BLACK FOG IS LIFTING    opens CIA 601542
+```
+
+A match prints "SECURITY CLEARANCE: 1AJ9550" and shows the file. Anything else gets "ACCESS
+DENIED - ILLEGAL ATTEMPT AT ACCESS SUBJECT TO IMPRISONMENT". The comparison is of the exact
+characters, so the code must be in capitals, as the prompt says.
+
+The check has a hole, much like setup's. It compares characters until it reaches the `$` that
+ends the stored phrase, and never looks at how long your answer is. Anything that starts with a
+phrase gets in: `THE SUN RISES ASCAROTH AND SETS` opens the NSC file.
+
+The phrases aren't hidden either. They're stored in `PRES.EXE` as plain text, right after the
+names of the database's documents, for anyone who looked at the program in a file viewer.
+One of the game's own staff memos complains of people asking what the codes for the security
+files are.
+
+### Numbered access codes
+
+Lists online give numbers as the access codes for these files: 48038 for NSC 513324 and 708021
+for CIA 601542. Nothing in this version asks for or knows them. Neither number is in any of the
+game's files, as text, or as a two- or four-byte number, and neither follows from the phrases
+or the file numbers by any simple sum. In the MS-DOS version, the phrase is the code. Where the
+numbers come from, another version or Cosmi's own papers, is still to find.
+
+The copy in `original_not_sure` is the same release as eXoDOS's: `PRES.EXE`, `START.EXE`,
+`SU.EXE`, `SA.B`, `GUIDE.TXT` and `R-PIM.COM` are byte for byte the same, and its readme, from
+the Underdogs, thanks Rascal for the crack. Its `SA`, a profile that's been played, differs.
