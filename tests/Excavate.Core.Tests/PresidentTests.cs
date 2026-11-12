@@ -155,6 +155,25 @@ public sealed class PresidentTests : IDisposable
         Assert.Equal([0x16, 0x06, 0xCC, 0x07], profile[clock..(clock + 4)]);
     }
 
+    [Theory]
+    [InlineData("THE SUN RISES ASCAROTH", "NSC 513324")]
+    [InlineData("THE BLACK FOG IS LIFTING", "CIA 601542")]
+    [InlineData("THE SUN RISES ASCAROTH AND SETS", "NSC 513324")]
+    [InlineData("48038", "PROSECUTORIAL SUMMARY")]
+    public void The_Top_Secret_files_open_to_a_phrase_that_starts_with_their_code(string code, string shown)
+    {
+        if (Start("PRES.EXE") is not { } machine)
+        {
+            return;
+        }
+
+        // the data base, its Top Secret files, and a security code; one that isn't goes back
+        // to the data base's menu
+        Type(machine, $"2UNDERDOGS|SCIN| v!vvvvv!{code}|");
+
+        Assert.Contains(shown, Screen(machine));
+    }
+
     [Fact]
     public void The_EGA_shows_a_photo_at_640_by_350()
     {

@@ -195,8 +195,9 @@ THE SUN RISES ASCAROTH      opens NSC 513324
 THE BLACK FOG IS LIFTING    opens CIA 601542
 ```
 
-A match prints "SECURITY CLEARANCE: 1AJ9550" and shows the file. Anything else gets "ACCESS
-DENIED - ILLEGAL ATTEMPT AT ACCESS SUBJECT TO IMPRISONMENT". The comparison is of the exact
+A match prints "SECURITY CLEARANCE: 1AJ9550" and shows the file, a page at a time, read from
+`START.EXE` 80 bytes at a time. Anything else gets "ACCESS DENIED - ILLEGAL ATTEMPT AT ACCESS
+SUBJECT TO IMPRISONMENT", and it's back to the database's menu. The comparison is of the exact
 characters, so the code must be in capitals, as the prompt says.
 
 The check has a hole, much like setup's. It compares characters until it reaches the `$` that
@@ -211,7 +212,7 @@ files are.
 ### Numbered access codes
 
 Lists online give numbers as the access codes for these files: 48038 for NSC 513324 and 708021
-for CIA 601542. Nothing in this version asks for or knows them. Neither number is in any of the
+for CIA 601542. Nothing in this version asks for or knows them; typed at the prompt, 48038 is turned away. Neither number is in any of the
 game's files, as text, or as a two- or four-byte number, and neither follows from the phrases
 or the file numbers by any simple sum. In the MS-DOS version, the phrase is the code. Where the
 numbers come from, another version or Cosmi's own papers, is still to find.
