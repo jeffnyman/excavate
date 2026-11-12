@@ -369,6 +369,10 @@ internal static class Program
         if (game.Known is { } about)
         {
             Console.WriteLine($"excavate: {about.Title}: {about.Note}");
+            if (string.Equals(game.Program, about.Program, StringComparison.OrdinalIgnoreCase) && about.Hint?.Invoke(game.Folder, saves) is { } hint)
+            {
+                Console.WriteLine($"excavate: {hint}");
+            }
         }
 
         bool running;

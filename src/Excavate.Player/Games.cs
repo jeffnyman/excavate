@@ -76,10 +76,14 @@ internal sealed record CrackedBytes(string Program, int Offset, byte[] Cracked, 
 /// For a game that keeps documents in its files, how to read them from its folder, to show
 /// without playing; otherwise null.
 /// </param>
+/// <param name="Hint">
+/// Something to know before playing, said as its program starts, from its folder and its save
+/// folder: null for nothing to say.
+/// </param>
 internal sealed record KnownGame(
     string Key, string Title, int Year, string[] Markers, string? Program, int Cycles, string Note,
     VideoAdapter Video = VideoAdapter.Vga, DiskSet? Disks = null, bool MouseJoystick = false, CrackedBytes[]? Cracks = null,
-    Func<string, IReadOnlyList<GameDocument>>? Documents = null);
+    Func<string, IReadOnlyList<GameDocument>>? Documents = null, Func<string, string, string?>? Hint = null);
 
 /// <summary>A game to play: its folder, the program in it to run, and how fast to run it.</summary>
 /// <param name="Folder">The game's folder, which becomes drive C:.</param>
@@ -137,9 +141,10 @@ internal static class Games
         // The President Is Missing: its setup, SU.EXE, comes cracked to take any name for the
         // supervisor's, the jump that turns a wrong one away made two NOPs; the jump goes back,
         // and setup takes only the name it shipped expecting, William H. Sullens; its data
-        // base's documents, the Top Secret files among them, can be read without playing
+        // base's documents, the Top Secret files among them, can be read without playing; and
+        // it logs on only with the code name in its profile, which the player says
         new("president", "The President Is Missing", 1988, ["PRES.EXE"], "PRES.EXE", Pc, "logs on and shows its files; not yet played through",
-            Cracks: [new CrackedBytes("SU.EXE", 0xAB9, [0x90, 0x90], [0x75, 0x03])], Documents: PresidentDocuments.Read),
+            Cracks: [new CrackedBytes("SU.EXE", 0xAB9, [0x90, 0x90], [0x75, 0x03])], Documents: PresidentDocuments.Read, Hint: PresidentLogon.Describe),
         new("guilty", "Presumed Guilty", 1989, ["PGMAIN.EXE"], "PGMAIN.EXE", Pc, Untried),
         new("omnicron", "The Omnicron Conspiracy", 1989, ["OMNICRON.EXE"], "OMNICRON.EXE", At, Untried),
         new("countdown", "Countdown", 1990, ["COUNT.EXE"], "COUNT.EXE", At, Untried),

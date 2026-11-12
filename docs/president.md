@@ -82,6 +82,11 @@ The profile setup writes goes to the game's save folder, as everything the game 
 From then on the game logs on with it. eXoDOS's own profile still works too: the game itself
 only compares your answers with whatever profile `SA` holds.
 
+The game takes no code name but the profile's, so as it starts the player says which that is,
+from the profile the game will read: `its profile logs on as UNDERDOGS, supervisor SCIN` for
+eXoDOS's. The code name is yours to choose in setup, 1 to 16 characters; only the supervisor's
+is fixed.
+
 ## The logon
 
 The game asks for two things: your code name and your supervisor's name. DOS's line input
