@@ -225,13 +225,38 @@ Typing `!!` anywhere in Presumed Guilty does nothing it wouldn't otherwise.
 
 ## What it asks of the PC
 
-- **The EGA, or the CGA, or a Tandy.** On the EGA, the only one tried so far, the title and
-  credits are in mode 10h, the menus are text, and DNA analysis is mode 0Eh.
+- **The EGA, or the CGA, or a Tandy.** On the EGA, the title and credits are in mode 10h, the
+  menus are text, and DNA analysis is mode 0Eh, with its picture, `DNA.PCC`. On the CGA, the
+  title is in mode 4, four colors, and DNA analysis is text, without the picture: the game
+  chooses so. Asked for the EGA, it looks at 0040:0087h, as the President does, and uses the
+  CGA if that's 0.
 - **Names padded with spaces,** as the President's are: it opens `PGTITLE .PCC`.
 - **The BIOS's IRET at F000:FF53h,** for its timer hook, as the President does.
 - **Nothing on drive A:.** eXoDOS mounts the floppy as A:, but the game runs from its folder,
   and in what's been played so far it never looks there. Its "PLACE DISK 1 IN DRIVE" is for logging off when it can't find
   `SA` to save the profile, as when it's played from floppies.
+
+![The title, on the CGA](images/guilty-title-cga.png)
+
+## The Tandy that isn't
+
+"3 FOR TANDY" gets the CGA. The game sets a flag for it, and then does just what it does for
+the CGA: mode 4 for the title, text for the rest. One place reads the flag, the start of the
+routine that plays its music on the PC's speaker:
+
+```
+cmp byte ptr [15B0h], 'Y'    ; the Tandy?
+jne next                     ; to the instruction after it, either way
+nop
+nop
+nop
+nop
+next:
+```
+
+Whatever the Tandy got there, most likely its own sound chip, three voices to the speaker's
+one, has been taken out, leaving room for it. This release's Tandy is a CGA, with the
+speaker.
 
 ## A byte that goes astray
 

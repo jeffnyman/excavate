@@ -122,6 +122,32 @@ public sealed class GuiltyTests : IDisposable
         Assert.Contains(shown, Screen(machine));
     }
 
+    [Theory]
+    [InlineData("1")]
+    [InlineData("3")]
+    public void The_CGA_and_the_Tandy_have_the_title_in_four_colors_and_DNA_analysis_in_text(string display)
+    {
+        if (Start("PGMAIN.EXE") is not { } machine)
+        {
+            return;
+        }
+
+        // the Tandy's choice is the CGA's: its own branch was emptied
+        Type(machine, display);
+        Assert.Equal(0x04, machine.VideoMode);
+        Assert.Contains("21/3D open PGTITLE .PCC (read): handle 6, 6316 bytes", _log);
+        if (display == "1")
+        {
+            Screenshot.WritePng(machine, Path.Combine(Shots, "guilty-title-cga.png"));
+        }
+
+        // past the credits, DNA analysis: on the EGA it's drawn in 16 colors, here in text
+        Type(machine, "   vv!!");
+        Assert.Equal(0x03, machine.VideoMode);
+        Assert.Contains("NO DNA SAMPLES AVAILABLE", Screen(machine));
+        Assert.DoesNotContain(_log, line => line.Contains("DNA     .PCC", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void The_game_goes_from_its_title_on_the_EGA_to_its_menu_and_logs_off()
     {
