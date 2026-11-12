@@ -119,6 +119,52 @@ So the passphrase is never typed. The prompt "- PLEASE ENTER YOUR PASSPHRASE BEL
 `PGMAIN.EXE`, but nothing in the program that I could find refers to it, like setup's codephrase prompt: what
 the release shows of a logon it took out.
 
+## Reading it without playing
+
+Excavate can show every message, dossier and report the case holds, and the cassette's
+transcript, from your copy of the game, without playing it:
+
+```
+excavate guilty --documents         all 323, by number and name, grouped by kind
+excavate guilty --documents 21      Falcon's first message
+excavate guilty --documents all     every one
+```
+
+Each entry in `MSG.TXT` is named, and the name's first letter is its kind:
+
+| Letter | Kind | Entries |
+|---|---|---|
+| C | COPNET's messages | 20 |
+| F | Falcon's messages | 30 |
+| N | The news | 18 |
+| D | Dossiers | 32 |
+| M | The mugshots' entries: a picture's file, a number, a name | 39 |
+| P | The photographs' captions | 13 |
+| O | Reports on what you can investigate | 162 |
+| S | Notes on the messages | 6 |
+| R | Remarks | 2 |
+
+The transcript is in `RECORDS.FIL`, in the same encoding: the audio evidence
+("on cassette", as the database menu says), written out. The player shows `^F` and `^L` as they are, where the game
+puts your names.
+
+The last two kinds look to have been left in by its makers. Two notes say how a
+status is set, "SET BY TRANSMITTING "BETAFAST"" and "BETANORM", and one that `S00` "IS CALLED
+FROM CTERMINATE AND IT CAUSES TERMINAL DEACTIVATION". The remarks are "JUST A SPACER BETWEEN
+THE TWO AITKENS" and "THE FOLLOWING IS FROM THE LAST DISK FROM CARIE".
+
+One report, `OHOARE SAM`, has no `~` before its text; the player takes its text from after
+the line naming it. How the game shows it is still to see.
+
+## A way around a logon that isn't there
+
+The President's `!!` is here too. The routine that checks an answer starts with
+`cmp word ptr [bx], 2121h`, and on two exclamation marks sets a flag and skips the rest, as
+the President's logon did. But nothing calls the routine, and nothing reads the flag: the
+one other place that touches it clears it. It's the President's logon, left in
+when this release took the logon out, with the prompts for the codephrase and the passphrase.
+Typing `!!` anywhere in Presumed Guilty does nothing it wouldn't otherwise.
+
 ## What it asks of the PC
 
 - **The EGA, or the CGA, or a Tandy.** On the EGA, the only one tried so far, the title and

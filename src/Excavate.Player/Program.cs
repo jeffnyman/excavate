@@ -549,7 +549,8 @@ internal static class Program
               --headless         no window: run --seconds seconds and stop
               --documents [n]    list the documents a game keeps, rather than play it, or show the
                                  one numbered n, or all of them (The President Is Missing's data
-                                 base, its Top Secret files included, and its messages)
+                                 base, its Top Secret files included, and its messages;
+                                 Presumed Guilty's messages, dossiers and transcript)
 
             playing:
               the keyboard is the PC's, key for key

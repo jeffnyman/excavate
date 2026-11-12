@@ -145,7 +145,8 @@ internal static class Games
         // it logs on only with the code name in its profile, which the player says
         new("president", "The President Is Missing", 1988, ["PRES.EXE"], "PRES.EXE", Pc, "logs on and shows its files; not yet played through",
             Cracks: [new CrackedBytes("SU.EXE", 0xAB9, [0x90, 0x90], [0x75, 0x03])], Documents: PresidentDocuments.Read, Hint: PresidentLogon.Describe),
-        new("guilty", "Presumed Guilty", 1989, ["PGMAIN.EXE"], "PGMAIN.EXE", Pc, "starts, shows its menus, messages and DNA analysis, and logs off; not yet played through"),
+        new("guilty", "Presumed Guilty", 1989, ["PGMAIN.EXE"], "PGMAIN.EXE", Pc, "starts, shows its menus, messages and DNA analysis, and logs off; not yet played through",
+            Documents: GuiltyDocuments.Read),
         new("omnicron", "The Omnicron Conspiracy", 1989, ["OMNICRON.EXE"], "OMNICRON.EXE", At, Untried),
         new("countdown", "Countdown", 1990, ["COUNT.EXE"], "COUNT.EXE", At, Untried),
         new("orion", "The Orion Conspiracy", 1995, ["ORION.BAT"], "ORION.BAT", Fast, Untried),

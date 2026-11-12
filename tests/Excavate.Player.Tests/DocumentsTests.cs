@@ -34,7 +34,7 @@ public sealed class DocumentsTests : IDisposable
     public void Dispose() => Directory.Delete(_root, recursive: true);
 
     private void Write(string file, string text)
-        => File.WriteAllBytes(Path.Combine(Folder, file), PresidentDocuments.Encode(Encoding.ASCII.GetBytes(text)));
+        => File.WriteAllBytes(Path.Combine(Folder, file), GameText.Encode(Encoding.ASCII.GetBytes(text)));
 
     // a message file and its table: a record for each, its letters, its offset, and the rest
     private void Messages(string name, char from, params string[] messages)
@@ -55,8 +55,8 @@ public sealed class DocumentsTests : IDisposable
     public void The_encoding_is_each_byte_rotated_right_one_bit()
     {
         // a carriage return, a line feed, a space, and an A, as the game's files hold them
-        Assert.Equal([0x86, 0x05, 0x10, 0xA0], PresidentDocuments.Encode([0x0D, 0x0A, 0x20, 0x41]));
-        Assert.Equal([0x0D, 0x0A, 0x20, 0x41], PresidentDocuments.Decode([0x86, 0x05, 0x10, 0xA0]));
+        Assert.Equal([0x86, 0x05, 0x10, 0xA0], GameText.Encode([0x0D, 0x0A, 0x20, 0x41]));
+        Assert.Equal([0x0D, 0x0A, 0x20, 0x41], GameText.Decode([0x86, 0x05, 0x10, 0xA0]));
     }
 
     [Fact]

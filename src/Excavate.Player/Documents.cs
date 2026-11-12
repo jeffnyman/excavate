@@ -10,6 +10,55 @@ namespace Excavate.Player;
 internal sealed record GameDocument(int Number, string Group, string Title, string Text);
 
 /// <summary>
+/// What the games that keep their text rotated by a bit share: Cosmi's investigations, whose
+/// files hold every byte rotated right by one bit, and the reading of documents from them.
+/// </summary>
+internal static class GameText
+{
+    // a title longer than this is cut short
+    private const int TitleLength = 60;
+
+    /// <summary>The games' encoding undone: each byte rotated left by one bit.</summary>
+    public static byte[] Decode(byte[] bytes) => [.. bytes.Select(b => (byte)((b << 1) | (b >> 7)))];
+
+    /// <summary>The games' encoding: each byte rotated right by one bit.</summary>
+    public static byte[] Encode(byte[] bytes) => [.. bytes.Select(b => (byte)((b >> 1) | (b << 7)))];
+
+    /// <summary>A file of the game's, decoded, as text.</summary>
+    public static string ReadDecoded(string folder, string name) => Encoding.ASCII.GetString(Decode(File.ReadAllBytes(Find(folder, name))));
+
+    /// <summary>
+    /// A document, its lines ending in a newline, with no blank lines before or after; none when
+    /// it's empty. Its title is its first line with a letter or digit in it, after its name if
+    /// it has one, cut short if it's long.
+    /// </summary>
+    public static void Add(List<GameDocument> documents, string group, string text, string? name = null)
+    {
+        string body = text.Replace("\r\n", "\n", StringComparison.Ordinal).Trim('\n');
+        if (body.Trim().Length == 0)
+        {
+            return;
+        }
+
+        string first = body.Split('\n').FirstOrDefault(line => line.Any(char.IsLetterOrDigit))?.Trim() ?? "";
+        string title = name is null ? first : $"{name}: {first}";
+        if (title.Length > TitleLength)
+        {
+            // at the last word that fits
+            int space = title.LastIndexOf(' ', TitleLength - 3);
+            title = title[..(space > 0 ? space : TitleLength - 3)].TrimEnd(' ', ',', '.', '-', ':') + "...";
+        }
+
+        documents.Add(new GameDocument(documents.Count + 1, group, title, body + "\n"));
+    }
+
+    /// <summary>A file in the folder, whatever its case.</summary>
+    public static string Find(string folder, string name)
+        => Directory.EnumerateFiles(folder).FirstOrDefault(file => string.Equals(Path.GetFileName(file), name, StringComparison.OrdinalIgnoreCase))
+            ?? throw new FileNotFoundException($"no {name} in {folder}, where the game keeps its documents");
+}
+
+/// <summary>
 /// The documents of <i>The President Is Missing</i>, read from the player's copy without
 /// playing: its data base's, the Top Secret files included, and every message it can send you.
 /// </summary>
@@ -36,9 +85,6 @@ internal static class PresidentDocuments
     // the message tables' records, each ten bytes long
     private const int RecordLength = 10;
 
-    // a title longer than this is cut short
-    private const int TitleLength = 60;
-
     // the message files, in the order they're listed, and who sends them
     private static readonly (string File, string Group)[] Messages =
     [
@@ -53,14 +99,14 @@ internal static class PresidentDocuments
     public static IReadOnlyList<GameDocument> Read(string folder)
     {
         var documents = new List<GameDocument>();
-        byte[] table = File.ReadAllBytes(Find(folder, Table));
+        byte[] table = File.ReadAllBytes(GameText.Find(folder, Table));
         AddEach(documents, folder, Documents, $"the data base ({Documents})",
             Enumerable.Range(0, table.Length / 2).Select(entry => table[2 * entry] | (table[(2 * entry) + 1] << 8)));
 
         foreach (var (file, group) in Messages)
         {
             // a record of ten bytes for each message, its offset after two letters; the byte left over is filler
-            byte[] records = File.ReadAllBytes(Find(folder, Path.ChangeExtension(file, ".TBL")));
+            byte[] records = File.ReadAllBytes(GameText.Find(folder, Path.ChangeExtension(file, ".TBL")));
             AddEach(documents, folder, file, $"{group} ({file})",
                 Enumerable.Range(0, records.Length / RecordLength).Select(record => records[(record * RecordLength) + 2] | (records[(record * RecordLength) + 3] << 8)));
         }
@@ -71,7 +117,7 @@ internal static class PresidentDocuments
     // the documents in a file, from each offset given to the next '^'
     private static void AddEach(List<GameDocument> documents, string folder, string file, string group, IEnumerable<int> starts)
     {
-        byte[] text = Decode(File.ReadAllBytes(Find(folder, file)));
+        byte[] text = GameText.Decode(File.ReadAllBytes(GameText.Find(folder, file)));
         foreach (int start in starts)
         {
             if (start == Unused || start >= text.Length)
@@ -80,38 +126,7 @@ internal static class PresidentDocuments
             }
 
             int end = Array.IndexOf(text, (byte)'^', start);
-            Add(documents, group, Encoding.ASCII.GetString(text, start, (end < 0 ? text.Length : end) - start));
+            GameText.Add(documents, group, Encoding.ASCII.GetString(text, start, (end < 0 ? text.Length : end) - start));
         }
     }
-
-    /// <summary>The game's encoding undone: each byte rotated left by one bit.</summary>
-    public static byte[] Decode(byte[] bytes) => [.. bytes.Select(b => (byte)((b << 1) | (b >> 7)))];
-
-    /// <summary>The game's encoding: each byte rotated right by one bit.</summary>
-    public static byte[] Encode(byte[] bytes) => [.. bytes.Select(b => (byte)((b >> 1) | (b << 7)))];
-
-    // a document, its lines ending in a newline, with no blank lines before or after; none when it's empty
-    private static void Add(List<GameDocument> documents, string group, string text)
-    {
-        string body = text.Replace("\r\n", "\n", StringComparison.Ordinal).Trim('\n');
-        if (body.Trim().Length == 0)
-        {
-            return;
-        }
-
-        string title = body.Split('\n')[0].Trim();
-        if (title.Length > TitleLength)
-        {
-            // at the last word that fits
-            int space = title.LastIndexOf(' ', TitleLength - 3);
-            title = title[..(space > 0 ? space : TitleLength - 3)].TrimEnd(' ', ',', '.', '-') + "...";
-        }
-
-        documents.Add(new GameDocument(documents.Count + 1, group, title, body + "\n"));
-    }
-
-    // a file in the folder, whatever its case
-    private static string Find(string folder, string name)
-        => Directory.EnumerateFiles(folder).FirstOrDefault(file => string.Equals(Path.GetFileName(file), name, StringComparison.OrdinalIgnoreCase))
-            ?? throw new FileNotFoundException($"no {name} in {folder}, where the game keeps its documents");
 }
