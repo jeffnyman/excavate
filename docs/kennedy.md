@@ -14,11 +14,14 @@ game today keeps as PDFs beside it.
 | `GOI.EXE` | The game, 153,152 bytes |
 | `RUND.EXE` | The ending: your talk with Kennedy on Air Force One, and how it all turns out |
 | `KSHOW.EXE`, `SHOW.DAT`, `JFKT1`, `P` | The "Top-Secret Slide Show": the story before the game, in pages of text and pictures |
-| `K.DAT` | The ending's dialog: what Kennedy and Dave Powers answer to what you type, not yet looked at |
+| `K.DAT` | The ending's dialog: what Kennedy and Dave Powers answer to what you type |
 | `$RUN.OVL`, `$KS.OVL` | The display's overlays: setup swaps them, for a "fast" adapter or a "slow" CGA that shows snow |
 | `SYS$MSG.DAT` | The interface library's messages |
 | `GETKEY.COM` | Waits for a key and exits with it, for the batch file |
-| `GOIDAT.SAV`, `MIRKWOOD.DAT`, `SHERWOOD.DAT`, `NWS` | The game's data, not yet looked at |
+| `MIRKWOOD.DAT` | The 96 missions to see someone: what the agents say on each, and its script |
+| `SHERWOOD.DAT` | The game's other 13 missions, among them going after Oswald and his rifle |
+| `NWS` | The news (F6), and the help (F1) |
+| `GOIDAT.SAV` | A saved game, not yet looked at |
 
 `GOI.EXE`, `RUND.EXE` and `KSHOW.EXE` were built with Turbo C (Borland, 1987). The game and
 `RUND.EXE` are also built on C-Worthy, an interface library by Custom Design Systems of Provo,
@@ -244,6 +247,114 @@ The other endings:
   12:30 on Friday, November 22, it goes ahead, and "the past, present, and future are
   destroyed."
 
+## The game's files
+
+You play from the timeship, outside Fort Worth on Friday, November 15, 1963. You type
+orders to your five agents: Iris Steel, Bridgette Cooper (your daughter), Alexander Blue,
+William Stein, and Dr. Carl Czernak. `GOI.EXE` holds what it understands:
+
+- A dictionary of 568 words, each with a class and a number. "Meet", "see", "talk" and "visit"
+  are all verb 14, "see"; "gun" and "rifle" are both thing 0.
+- Its 20 verbs: "escape from", "call", "deflate", "disable", "find", "get", "hurt", "kill",
+  "make", "pretend", "prove", "report to", "return to", "save", "see", "shoot", "show",
+  "steal", "stop" and "wait for".
+- Its nouns: the agents, the computer, "you", and the people you can send an agent to see, each
+  with the other names it answers to ("Robert Kennedy", "bobby", "rfk").
+- The things an order can name: rifle, tires, car, credentials, money and news.
+- Kennedy's whereabouts through the week, from the American Hotel in New York to the motorcade
+  through Dallas.
+
+What the agents say on each mission, and what the mission does, are in two data files, and the
+news is in a third. `tools/paragon/kennedy_files.py` reads all three.
+
+### MIRKWOOD.DAT and SHERWOOD.DAT
+
+Both start the same way:
+
+- 9999h, the version (2), and the number of records, then each record's place (a double word).
+- A word for how many keys follow, then the keys, 4 bytes each: an order, as a noun, a verb
+  and a thing (F7h for none), and the record it leads to.
+
+The nouns are numbered as in `GOI.EXE`'s table of them, which starts with the agents, Iris
+Steel as 0, then the computer, "you" and the people. Every key in `MIRKWOOD.DAT` is "see"
+someone, so the keys name each record:
+
+- Records 4 to 95 are each one person, in the order of their first names, from Adlai
+  Stevenson to William Mahoney, with "a CIA agent", "an FBI agent" and "a Secret Service
+  agent" among them.
+- Record 3 is one mission for 22 people, among them McGeorge Bundy, Theodore Sorensen and Earl
+  Warren. Its only report is a failure: "I didn't fare very well. I tried my best to see him,
+  but I couldn't."
+- Records 0 to 2 have no key. The game picks them itself: an agent sent to see someone nobody
+  knows about, and two for being sent to the wrong city.
+
+`SHERWOOD.DAT`'s 13 records are the other orders:
+
+| Record | Order |
+|---|---|
+| 0 | call you |
+| 1 | disable an FBI agent's car, or stop an FBI agent |
+| 2 | disable Wesley Frazier's car |
+| 3 | hurt Lee Harvey Oswald |
+| 4 | kill Lee Harvey Oswald |
+| 5 | return to you |
+| 6 | save any of the agents |
+| 7 to 9 | see Walter Jenkins, Willard Wirtz, or William Orrick |
+| 10 | steal the rifle from Lee Harvey Oswald |
+| 11 | steal money from a bank |
+| 12 | steal credentials from an FBI agent |
+
+Not everyone is up to every order. Sent to hurt Oswald, Czernak says "I can't fight Oswald;
+I'm a scientist"; sent to kill him, Steel says "God Bless America, Cooper! Finally I get to
+take that little louse Oswald and end his worthless commie life." Wesley Frazier drove Oswald
+to work at the Book Depository on the morning of November 22.
+
+A record starts with a byte for the size of a small table, five words, and its version (5): the
+text's place, the script's, the table's, and the script's and the text's sizes. The script runs
+the mission, and isn't decoded yet; the text is what's said in it.
+
+### What the agents say
+
+A record's text is passages, and lists of words:
+
+- **A passage** starts with a byte of bits for the agents who can say it (1 Steel, 2
+  Bridgette, 4 Blue, 8 Stein, 10h Czernak; 1Fh for anyone), then the place of the next passage
+  in its ring. The passages of a ring are one thing said, each in one agent's voice, and the
+  game says the one for the agent on the mission. When a ring has more than one passage for an
+  agent, the game picks one at random.
+- **A list of words** is what the script matches your answer against, ended by 01h each, and a
+  zero at the end.
+
+A passage's text is plain, ended by a zero, or, if it starts with FFh, packed in nibbles, high
+first:
+
+- 0 to Eh stand for the 15 commonest characters, "e" and a space, then "taoinhreslu", then "t"
+  and a space, then "mc".
+- Fh and two more nibbles make a byte, any character.
+- Fh 0 0 ends the passage.
+
+In both kinds, bit 7 of a character means a space after it. A few passages say only "Err":
+places the writers left without anything to say.
+
+So a mission reads as a conversation. Sent to see Carl Kaysen, Steel asks "Kaysen? Who's
+he?", and Czernak "I'm sorry, Adam, this Kaysen fellow is an unknown to me. How can he help
+us?" The words that follow are "assistant deputy national security special". An answer with
+them gets "Oh, I see."; one without, "That doesn't sound right. Check the mission book to be
+sure." Then whether to tell him you're from the future, what to tell him, and how it went,
+each in five voices: "I nearly slugged Kaysen. He broke into hysterical laughter when I told
+him." The mission book is the novella in the box.
+
+### The news
+
+`NWS` starts with 1Ah and 01h, then the place of each page (a word), with FFFFh between
+groups. The first place is where the pages start, so it's also the size of this list. A page
+ends with `|`, every byte is XORed with 1, and bit 7 means a space, as in the records. The
+pages are two-column newspaper stories, dated November 14 to 20, 1963: "PRESIDENT'S WIFE TO
+CAMPAIGN IN 64", "1,000 TROOPS TO LEAVE VIETNAM", "IT'S A MAD, MAD, MAD, MAD WORLD". The last
+groups are a line, "You had better make news today, or it is all over with!", and the pages of
+the help: "General Program Information", "The Wait Command".
+
 ## Still to look at
 
-Playing the game itself; its data files; and the "slow adapter" setup.
+The missions' scripts, which say what each mission does and how one leads to the next; playing
+the game itself; `GOIDAT.SAV`; and the "slow adapter" setup.

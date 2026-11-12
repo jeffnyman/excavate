@@ -65,3 +65,22 @@ python tools/paragon/kennedy_dialog.py <the game's folder> --points
   `kt`), that one.
 - With `--points`, it lists every answer that gives points, with what to say for it. Six
   convince Kennedy.
+
+`paragon/kennedy_files.py` reads the rest of the game's text: the news from `NWS`, and from
+`MIRKWOOD.DAT` and `SHERWOOD.DAT`, each mission's orders and what the agents say on it, ring by
+ring. The names of the people and the verbs come from `GOI.EXE`. How the game keeps them is in
+[docs/kennedy.md](../docs/kennedy.md#the-games-files).
+
+```
+python tools/paragon/kennedy_files.py <the game's folder> news
+python tools/paragon/kennedy_files.py <the game's folder> people
+python tools/paragon/kennedy_files.py <the game's folder> person <number or name>
+python tools/paragon/kennedy_files.py <the game's folder> tasks
+python tools/paragon/kennedy_files.py <the game's folder> task <number or order>
+```
+
+- **`news`** prints every page, in its groups.
+- **`people`** and **`tasks`** list each mission, with the orders that lead to it and the
+  first thing said on it.
+- **`person`** and **`task`** print one mission's text: its rings of passages, each with the
+  agents who say it, and the words the script listens for.
