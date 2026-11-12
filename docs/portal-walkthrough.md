@@ -5,6 +5,7 @@ across Worldnet's dataspaces, and reading some pieces unlocks others. This is a 
 it, level by level, worked out from the game's own data: what each piece needs read before
 it unlocks, as the game checks it. How that was found is in [portal.md](portal.md#the-story).
 Excavate has played it through, from the login to the last message, by following these rules.
+The steps below are written by a script from the disks, in [tools](../tools/README.md).
 
 ## How to read something
 

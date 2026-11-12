@@ -7,6 +7,7 @@ obj/
 *.swp
 TestResults/
 artifacts/
+__pycache__/
 
 # the games are never in the repository: they're the player's own copies, kept outside it (in
 # ../_excavating while developing), and these catch a copy made by mistake

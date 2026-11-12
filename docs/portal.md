@@ -296,7 +296,8 @@ How this was worked out, a step at a time:
    order as the map. Bits 20h and 10h were confirmed by watching them change in play.
 4. **The path.** Starting from each level's end and following prerequisites back gives the
    items that must be read. Ordering them so that each comes after its prerequisites gives the
-   [walkthrough](portal-walkthrough.md).
+   [walkthrough](portal-walkthrough.md). The scripts that read the disks and write it are in
+   [tools](../tools/README.md).
 5. **Playing it.** A reader in Excavate's tests plays the game through its keys. It reads the
    flags from memory to know what's unlocked, and the number of the name across the top of the
    screen, at 13Ch in the game's data, to know what's highlighted. That's how the rules for
