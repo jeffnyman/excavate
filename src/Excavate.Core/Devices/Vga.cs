@@ -3,8 +3,9 @@ namespace Excavate.Core.Devices;
 /// <summary>
 /// The VGA: 256 KB of video memory in four planes, the registers that decide how the processor
 /// reaches that memory and how it's shown, and the DAC, the palette of 256 colors each pixel
-/// indexes. The graphics modes drawn are those with 256 colors: mode 13h, and the unchained
-/// variants of it known as Mode X. The other modes are drawn as text.
+/// indexes. Drawn are the text modes; the CGA's graphics modes (4 to 6), kept as the CGA kept
+/// them; the EGA's, with 16 colors in four planes (0Dh, 0Eh and 10h, and the VGA's own 12h);
+/// and mode 13h with 256 colors, and the unchained variants of it known as Mode X.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -67,6 +68,25 @@ internal sealed class Vga
     public int Mode { get; private set; }
 
     private bool Chained => (_sequencer[4] & 0x08) != 0;
+
+    /// <summary>How a mode keeps its picture in memory, and so how it's drawn.</summary>
+    private enum Kind
+    {
+        Text,
+        Cga4,     // 320 by 200 in 4 colors, at B8000h as the CGA kept it, two bits a pixel
+        Cga2,     // 640 by 200 in 2 colors, the same way, a bit a pixel
+        Planar,   // 16 colors, a bit of each pixel in each of the four planes
+        Linear,   // 256 colors, mode 13h and Mode X
+    }
+
+    private static Kind KindOf(int mode) => mode switch
+    {
+        4 or 5 => Kind.Cga4,
+        6 => Kind.Cga2,
+        0x0D or 0x0E or 0x10 or 0x12 => Kind.Planar,
+        0x13 => Kind.Linear,
+        _ => Kind.Text,
+    };
 
     // ---- memory ------------------------------------------------------------------------------
 
@@ -312,10 +332,36 @@ internal sealed class Vga
 
     // ---- modes -------------------------------------------------------------------------------
 
+    // the 16-color modes, as IBM's VGA BIOS sets them: the sequencer (chain 4 off), the
+    // miscellaneous output register, and the CRT controller's timing, which gives the size
+    private static readonly Dictionary<int, (byte[] Sequencer, byte Miscellaneous, byte[] Crtc)> PlanarModes = new()
+    {
+        [0x0D] = ([0x03, 0x09, 0x0F, 0x00, 0x06], 0x63,
+        [
+            0x2D, 0x27, 0x28, 0x90, 0x2B, 0x80, 0xBF, 0x1F, 0x00, 0xC0, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x9C, 0x8E, 0x8F, 0x14, 0x00, 0x96, 0xB9, 0xE3, 0xFF,
+        ]),
+        [0x0E] = ([0x03, 0x01, 0x0F, 0x00, 0x06], 0x63,
+        [
+            0x5F, 0x4F, 0x50, 0x82, 0x54, 0x80, 0xBF, 0x1F, 0x00, 0xC0, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x9C, 0x8E, 0x8F, 0x28, 0x00, 0x96, 0xB9, 0xE3, 0xFF,
+        ]),
+        [0x10] = ([0x03, 0x01, 0x0F, 0x00, 0x06], 0xA3,
+        [
+            0x5F, 0x4F, 0x50, 0x82, 0x54, 0x80, 0xBF, 0x1F, 0x00, 0x40, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x83, 0x85, 0x5D, 0x28, 0x0F, 0x63, 0xBA, 0xE3, 0xFF,
+        ]),
+        [0x12] = ([0x03, 0x01, 0x0F, 0x00, 0x06], 0xE3,
+        [
+            0x5F, 0x4F, 0x50, 0x82, 0x54, 0x80, 0x0B, 0x3E, 0x00, 0x40, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0xEA, 0x8C, 0xDF, 0x28, 0x00, 0xE7, 0x04, 0xE3, 0xFF,
+        ]),
+    };
+
     /// <summary>
     /// Sets a mode as the video BIOS does: its register values, the default palette, and,
-    /// unless asked not to, cleared memory. Modes other than 13h are set up as 25 rows of
-    /// text, 40 across for modes 0 and 1 and 80 for the rest, in characters of 16 lines.
+    /// unless asked not to, cleared memory. The text modes are 25 rows, 40 across for modes 0
+    /// and 1 and 80 for the rest, in characters of 16 lines.
     /// </summary>
     public void SetMode(int mode, bool clear)
     {
@@ -325,7 +371,15 @@ internal sealed class Vga
         Array.Clear(_crtc);
         Array.Clear(_attribute);
 
-        if (mode == 0x13)
+        if (PlanarModes.TryGetValue(mode, out var planar))
+        {
+            planar.Sequencer.CopyTo(_sequencer, 0);
+            planar.Crtc.CopyTo(_crtc, 0);
+            byte[] graphics = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0x0F, 0xFF];
+            graphics.CopyTo(_graphics, 0);
+            _miscellaneous = planar.Miscellaneous;
+        }
+        else if (mode == 0x13)
         {
             // the values of IBM's VGA BIOS for mode 13h
             byte[] sequencer = [0x03, 0x01, 0x0F, 0x00, 0x0E];
@@ -342,11 +396,12 @@ internal sealed class Vga
         }
         else
         {
+            // text, and the CGA's graphics modes, which the processor reaches at B8000h
             byte[] sequencer = [0x03, 0x00, 0x03, 0x00, 0x02];
             sequencer.CopyTo(_sequencer, 0);
-            bool narrow = mode is 0 or 1;
+            bool narrow = mode is 0 or 1 or 4 or 5;
             _crtc[0x01] = (byte)(narrow ? 0x27 : 0x4F);
-            _crtc[0x09] = 0x0F;
+            _crtc[0x09] = (byte)(KindOf(mode) == Kind.Text ? 0x0F : 0xC1);
             _crtc[0x0A] = 0x0D;  // the cursor: the character's last two lines
             _crtc[0x0B] = 0x0E;
             _crtc[0x12] = 0x8F;
@@ -355,72 +410,191 @@ internal sealed class Vga
             _miscellaneous = 0x67;
         }
 
-        for (int i = 0; i < 16; i++)
-        {
-            _attribute[i] = (byte)i;
-        }
-
-        _attribute[0x10] = (byte)(mode == 0x13 ? 0x41 : 0x0C);
+        _attribute[0x10] = (byte)(mode == 0x13 ? 0x41 : KindOf(mode) == Kind.Text ? 0x0C : 0x01);
         _attribute[0x12] = 0x0F;
         _pelMask = 0xFF;
-        DefaultPalette();
+        DefaultPalette(mode);
 
         if (clear)
         {
+            // text is cleared to spaces, light gray on black; the graphics modes to color 0
             Array.Clear(_memory);
+            bool text = KindOf(mode) == Kind.Text;
             for (int i = 0; i < _text.Length; i += 2)
             {
-                _text[i] = (byte)' ';
-                _text[i + 1] = 0x07;
+                _text[i] = (byte)(text ? ' ' : 0);
+                _text[i + 1] = (byte)(text ? 0x07 : 0);
             }
         }
     }
 
     /// <summary>
-    /// The default palette: the 16 colors of the EGA, then a ramp of 16 grays. The rest of the
-    /// VGA BIOS's default (hue ramps) is left black: games set their own palettes before drawing.
+    /// The default palette, as the VGA BIOS loads it for a mode. Mode 13h has the 16 colors of
+    /// the CGA and EGA, then a ramp of 16 grays; the rest of its default (hue ramps) is left
+    /// black, as games set their own before drawing. In the other modes the attribute
+    /// controller's 16 registers pick from 64 colors in the DAC: for text and the 350- and
+    /// 480-line modes, the EGA's 64 (two bits each of red, green and blue); for the 200-line
+    /// modes, the CGA's 16, repeated, which those modes were made for.
     /// </summary>
-    private void DefaultPalette()
+    private void DefaultPalette(int mode)
     {
         Array.Clear(_dac);
-        for (int i = 0; i < 16; i++)
+        if (mode == 0x13)
         {
-            int low = (i & 8) != 0 ? 0x15 : 0;
-            int red = ((i & 4) != 0 ? 0x2A : 0) + low;
-            int green = ((i & 2) != 0 ? 0x2A : 0) + low;
-            int blue = ((i & 1) != 0 ? 0x2A : 0) + low;
-            if (i == 6)
+            for (int i = 0; i < 16; i++)
             {
-                green = 0x15; // brown, not dark yellow
+                _attribute[i] = (byte)i;
+                var (red, green, blue) = CgaColor(i);
+                SetColor(i, red, green, blue);
             }
 
+            int[] grays = [0, 5, 8, 11, 14, 17, 20, 24, 28, 32, 36, 40, 45, 50, 56, 63];
+            for (int i = 0; i < 16; i++)
+            {
+                SetColor(16 + i, grays[i], grays[i], grays[i]);
+            }
+
+            return;
+        }
+
+        bool cga = mode is 4 or 5 or 6 or 0x0D or 0x0E;
+        for (int i = 0; i < 64; i++)
+        {
+            var (red, green, blue) = cga ? CgaColor(i) : EgaColor(i);
             SetColor(i, red, green, blue);
         }
 
-        int[] grays = [0, 5, 8, 11, 14, 17, 20, 24, 28, 32, 36, 40, 45, 50, 56, 63];
-        for (int i = 0; i < 16; i++)
+        // the attribute registers, picking the CGA's 16 colors among the 64: in the CGA's
+        // numbering, bright ones have bit 4 set (bit 3 among 16)
+        byte[] registers = mode switch
         {
-            SetColor(16 + i, grays[i], grays[i], grays[i]);
+            4 or 5 => [0x00, 0x13, 0x15, 0x17, 0x02, 0x04, 0x06, 0x07, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17],
+            6 => [0x00, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17],
+            0x0D or 0x0E => [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17],
+            _ => [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x14, 0x07, 0x38, 0x39, 0x3A, 0x3B, 0x3C, 0x3D, 0x3E, 0x3F],
+        };
+        registers.CopyTo(_attribute, 0);
+    }
+
+    // a color of the EGA's 64, as its bits give it: red, green and blue at two thirds of full
+    // (bits 2, 1 and 0), and each again at a third (bits 5, 4 and 3)
+    private static (int Red, int Green, int Blue) EgaColor(int i) =>
+        ((((i >> 2) & 1) * 0x2A) + (((i >> 5) & 1) * 0x15),
+         (((i >> 1) & 1) * 0x2A) + (((i >> 4) & 1) * 0x15),
+         ((i & 1) * 0x2A) + (((i >> 3) & 1) * 0x15));
+
+    // a color of the CGA's 16, as the VGA numbers them: red, green and blue at two thirds of
+    // full, and a third more of all three with bit 4 or 3. Dark yellow is brown, as IBM's
+    // monitor made it
+    private static (int Red, int Green, int Blue) CgaColor(int i)
+    {
+        int low = (i & 0x18) != 0 ? 0x15 : 0;
+        int red = ((i & 4) != 0 ? 0x2A : 0) + low;
+        int green = ((i & 2) != 0 ? 0x2A : 0) + low;
+        int blue = ((i & 1) != 0 ? 0x2A : 0) + low;
+        if ((i & 7) == 6 && low == 0)
+        {
+            green = 0x15;
         }
+
+        return (red, green, blue);
+    }
+
+    // ---- the attribute controller and pixels, for the BIOS -----------------------------------
+
+    /// <summary>
+    /// A register of the attribute controller: the 16 colors' palette (0 to 0Fh), the mode
+    /// control (10h), the border (11h), the color plane enable (12h) and the rest.
+    /// </summary>
+    public byte GetAttribute(int index) => _attribute[index % _attribute.Length];
+
+    public void SetAttribute(int index, byte value) => _attribute[index % _attribute.Length] = value;
+
+    /// <summary>
+    /// The CGA's color select register, as the BIOS keeps it on a VGA (INT 10h function 0Bh): in
+    /// the 320-wide modes, the background (bits 0 to 3) and which three colors the others are:
+    /// green, red and brown, or (bit 5) cyan, magenta and white, bright with bit 4. In the
+    /// 640-wide mode, the dots' color. In every mode, the border's.
+    /// </summary>
+    public void SelectCgaColors(byte select)
+    {
+        int color = (select & 7) | ((select & 8) << 1);
+        if (Mode is 4 or 5)
+        {
+            _attribute[0] = (byte)color;
+            for (int i = 1; i < 4; i++)
+            {
+                _attribute[i] = (byte)(((select & 0x20) != 0 ? (2 * i) + 1 : 2 * i) | (select & 0x10));
+            }
+        }
+        else if (Mode == 6)
+        {
+            _attribute[1] = (byte)color;
+        }
+
+        _attribute[0x11] = (byte)color;
+    }
+
+    /// <summary>
+    /// A pixel of the 16-color modes, by column and row, as the BIOS reaches it (INT 10h
+    /// functions 0Ch and 0Dh): when a color is given, written straight to the planes, or with
+    /// bit 7 set XORed on. Its color is returned.
+    /// </summary>
+    public byte PlanarPixel(int x, int y, byte? color)
+    {
+        var (width, height) = Size;
+        if (KindOf(Mode) != Kind.Planar || x >= width || y >= height)
+        {
+            return 0;
+        }
+
+        int at = (((y * _crtc[0x13] * 2) + (x >> 3)) & 0xFFFF) * 4;
+        int bit = 0x80 >> (x & 7);
+        if (color is { } c)
+        {
+            for (int plane = 0; plane < 4; plane++)
+            {
+                bool on = (c & (1 << plane)) != 0;
+                if ((c & 0x80) != 0)
+                {
+                    _memory[at + plane] ^= (byte)(on ? bit : 0);
+                }
+                else
+                {
+                    _memory[at + plane] = (byte)(on ? _memory[at + plane] | bit : _memory[at + plane] & ~bit);
+                }
+            }
+        }
+
+        int value = 0;
+        for (int plane = 0; plane < 4; plane++)
+        {
+            value |= (_memory[at + plane] & bit) != 0 ? 1 << plane : 0;
+        }
+
+        return (byte)value;
     }
 
     // ---- drawing -----------------------------------------------------------------------------
 
     /// <summary>
-    /// The size of the picture, in pixels, as the CRT controller's registers give it: the
-    /// horizontal display end in 4-pixel units, and the vertical display end divided by how many
-    /// times each line is scanned. In text modes, 640 by 400.
+    /// The size of the picture, in pixels. In the 16- and 256-color modes, as the CRT
+    /// controller's registers give it: the horizontal display end, in characters of 8 pixels
+    /// (4 with 256 colors), and the vertical display end divided by how many times each line is
+    /// scanned. In text, 640 by 400; in the CGA's modes, 320 or 640 by 200.
     /// </summary>
     public (int Width, int Height) Size
     {
         get
         {
-            if (Mode != 0x13)
+            switch (KindOf(Mode))
             {
-                return (640, 400);
+                case Kind.Text: return (640, 400);
+                case Kind.Cga4: return (320, 200);
+                case Kind.Cga2: return (640, 200);
             }
 
-            int width = (_crtc[0x01] + 1) * 4;
+            int width = (_crtc[0x01] + 1) * (KindOf(Mode) == Kind.Linear ? 4 : 8);
             int end = _crtc[0x12] | ((_crtc[0x07] & 0x02) << 7) | ((_crtc[0x07] & 0x40) << 3);
             int scans = (_crtc[0x09] & 0x1F) + 1;
             if ((_crtc[0x09] & 0x80) != 0)
@@ -444,10 +618,17 @@ internal sealed class Vga
             palette[i] = 0xFF00_0000 | (Eight(_dac[c]) << 16) | (Eight(_dac[c + 1]) << 8) | Eight(_dac[c + 2]);
         }
 
-        if (Mode != 0x13)
+        switch (KindOf(Mode))
         {
-            RenderText(pixels[..(width * height)], palette);
-            return;
+            case Kind.Text:
+                RenderText(pixels[..(width * height)], palette);
+                return;
+            case Kind.Cga4 or Kind.Cga2:
+                RenderCga(pixels, width, height, palette);
+                return;
+            case Kind.Planar:
+                RenderPlanar(pixels, width, height, palette);
+                return;
         }
 
         int start = (_crtc[0x0C] << 8) | _crtc[0x0D];
@@ -460,6 +641,70 @@ internal sealed class Vga
                     ? ((start * 4) + (y * offset * 4) + x) & 0x3_FFFF
                     : ((((start + (y * offset) + (x >> 2)) & 0xFFFF) * 4) + (x & 3));
                 pixels[(y * width) + x] = palette[_memory[index]];
+            }
+        }
+    }
+
+    // the 16 colors the attribute controller makes of the DAC's 256: its palette registers give
+    // the low six bits of each, and its color select register (14h) the top two
+    private uint[] Colors16(ReadOnlySpan<uint> palette)
+    {
+        var colors = new uint[16];
+        int high = (_attribute[0x14] & 0x0C) << 4;
+        for (int i = 0; i < 16; i++)
+        {
+            colors[i] = palette[(_attribute[i] & 0x3F) | high];
+        }
+
+        return colors;
+    }
+
+    /// <summary>
+    /// Draws a 16-color mode: each pixel's color a bit from each of the four planes, left to
+    /// right from a byte's top bit, with the color plane enable register masking planes off.
+    /// Rows start the CRT controller's offset apart, in bytes, from its start address.
+    /// </summary>
+    private void RenderPlanar(Span<uint> pixels, int width, int height, ReadOnlySpan<uint> palette)
+    {
+        var colors = Colors16(palette);
+        int enable = _attribute[0x12] & 0x0F;
+        int start = (_crtc[0x0C] << 8) | _crtc[0x0D];
+        int stride = _crtc[0x13] * 2;
+        for (int y = 0; y < height; y++)
+        {
+            for (int column = 0; column < width / 8; column++)
+            {
+                int at = ((start + (y * stride) + column) & 0xFFFF) * 4;
+                int p0 = _memory[at], p1 = _memory[at + 1], p2 = _memory[at + 2], p3 = _memory[at + 3];
+                var target = pixels.Slice((y * width) + (column * 8), 8);
+                for (int dot = 0; dot < 8; dot++)
+                {
+                    int bit = 7 - dot;
+                    int color = ((p0 >> bit) & 1) | (((p1 >> bit) & 1) << 1) | (((p2 >> bit) & 1) << 2) | (((p3 >> bit) & 1) << 3);
+                    target[dot] = colors[color & enable];
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Draws the CGA's graphics modes as the CGA kept them: the even lines in the first 8 KB at
+    /// B8000h and the odd in the next, 80 bytes a line, with two bits a pixel at 320 across and
+    /// one at 640. The bits pick among the attribute controller's first registers.
+    /// </summary>
+    private void RenderCga(Span<uint> pixels, int width, int height, ReadOnlySpan<uint> palette)
+    {
+        var colors = Colors16(palette);
+        int bits = width == 320 ? 2 : 1;
+        int perByte = 8 / bits;
+        for (int y = 0; y < height; y++)
+        {
+            int line = ((y & 1) << 13) + ((y >> 1) * 80);
+            for (int x = 0; x < width; x++)
+            {
+                int b = _text[line + (x / perByte)];
+                int shift = (perByte - 1 - (x % perByte)) * bits;
+                pixels[(y * width) + x] = colors[(b >> shift) & ((1 << bits) - 1)];
             }
         }
     }
@@ -478,12 +723,7 @@ internal sealed class Vga
         var font = height <= 8 ? Font8 : height <= 14 ? Font14 : Font16;
         int columns = Math.Clamp(_crtc[0x01] + 1, 1, 80 / widen);
         int rows = VisibleLines / height;
-        var colors = new uint[16];
-        for (int i = 0; i < 16; i++)
-        {
-            colors[i] = palette[_attribute[i] & 0x3F];
-        }
-
+        var colors = Colors16(palette);
         int start = ((_crtc[0x0C] << 8) | _crtc[0x0D]) * 2;
         double frame = Time * FrameRate;
         bool cursorShown = ((long)(frame / 8) & 1) == 0 && (_crtc[0x0A] & 0x20) == 0;

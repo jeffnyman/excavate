@@ -141,9 +141,24 @@ public sealed partial class Machine
         WriteWord(0x40, 0x4A, 80);       // text columns
         WriteWord(0x40, 0x63, 0x3D4);    // the CRT controller's port
         WriteByte(0x40, 0x84, 24);       // text rows, less one
+        if (_cga is null)
+        {
+            // the EGA's and VGA's fields, which programs check for one: its information (256 KB,
+            // a color display), its switches, and the VGA's flags (400-line text, palettes loaded
+            // with the mode). The President Is Missing offers EGA graphics only when the first
+            // isn't 0
+            WriteByte(0x40, 0x87, 0x60);
+            WriteByte(0x40, 0x88, 0x09);
+            WriteByte(0x40, 0x89, 0x11);
+        }
 
         // the model byte at F000:FFFE: FCh, an AT-class machine
         WriteRom(0xF_FFFE, [0xFC]);
+
+        // the IRET at F000:FF53 that IBM's BIOSes point unused vectors at, and every compatible
+        // BIOS kept there: programs put a vector back by that address (The President Is Missing
+        // sets INT 1Ch to it)
+        WriteRom(0xF_FF53, [0xCF]);
 
         // the first half of the character set's 8 by 8 font, where IBM's BIOS has it: games of
         // the CGA's time draw their text from it (Portal does)
@@ -191,7 +206,10 @@ public sealed partial class Machine
 
     private void SetDx(int value) => Cpu.Edx = (Cpu.Edx & 0xFFFF_0000) | (ushort)value;
 
-    /// <summary>INT 10h, the video BIOS. Only what's needed until the VGA is emulated.</summary>
+    /// <summary>
+    /// INT 10h, the video BIOS: modes, text, pixels, the palettes, and the information programs
+    /// ask of the EGA and VGA. Functions games don't use stop the machine, to be found.
+    /// </summary>
     private void VideoService()
     {
         if (_cga is not null && CgaVideoService())
@@ -212,12 +230,36 @@ public sealed partial class Machine
                 int mode = Al & 0x7F;
                 _vga.SetMode(mode, clear: (Al & 0x80) == 0);
                 WriteByte(0x40, 0x49, (byte)mode);
-                WriteWord(0x40, 0x4A, (ushort)(mode is 0 or 1 or 0x13 ? 40 : 80));
+                WriteWord(0x40, 0x4A, (ushort)(mode is 0 or 1 or 4 or 5 or 0x0D or 0x13 ? 40 : 80));
+                WriteByte(0x40, 0x66, (byte)(mode == 6 ? 0x3F : 0x30));
                 ResetText(mode);
                 Trace($"10/00 set video mode {mode:X2}h");
                 break;
             }
 
+            case 0x0B:
+            {
+                // the CGA's palette, as on the CGA: BH 0 sets the background (or the dots' color
+                // at 640 across) from BL, with bit 4 brightening the other three colors at 320;
+                // BH 1 picks those three from BL's bit 0
+                byte bl = (byte)Cpu.Ebx;
+                byte select = ReadByte(0x40, 0x66);
+                select = (byte)(Cpu.Ebx >> 8) == 0
+                    ? (byte)((select & 0xE0) | (bl & 0x1F))
+                    : (byte)((select & ~0x20) | ((bl & 1) != 0 ? 0x20 : 0));
+                WriteByte(0x40, 0x66, select);
+                _vga.SelectCgaColors(select);
+                Trace($"10/0B palette {(ushort)Cpu.Ebx:X4}h: color select {select:X2}h");
+                break;
+            }
+
+            case 0x0C:
+                // write a pixel, color AL, at column CX and row DX; bit 7 of AL XORs it on
+                GraphicsPixel((ushort)Cpu.Ecx, (ushort)Cpu.Edx, Al);
+                break;
+            case 0x0D:
+                SetAl(GraphicsPixel((ushort)Cpu.Ecx, (ushort)Cpu.Edx, null));
+                break;
             case 0x10: PaletteService(); break;
             case 0x11:
                 if (Al == 0x30)
@@ -319,40 +361,81 @@ public sealed partial class Machine
     }
 
     /// <summary>
-    /// A pixel of the CGA's graphics modes, by column and row: written when a color is given (and
-    /// XORed on with bit 7 set), and its color returned. Outside the graphics modes, nothing.
+    /// A pixel of the CGA's graphics modes (the VGA's too), by column and row: written when a
+    /// color is given (and XORed on with bit 7 set), and its color returned. Outside the graphics
+    /// modes, nothing.
     /// </summary>
     private byte CgaPixel(int x, int y, byte? color)
     {
-        var cga = _cga!;
-        if (cga.Mode is < 4 or > 6 || x >= (cga.Mode == 6 ? 640 : 320) || y >= 200)
+        int mode = VideoMode;
+        if (mode is < 4 or > 6 || x >= (mode == 6 ? 640 : 320) || y >= 200)
         {
             return 0;
         }
 
         // two bits a pixel in the 320-wide modes, one in the 640-wide
-        int bits = cga.Mode == 6 ? 1 : 2;
+        int bits = mode == 6 ? 1 : 2;
         int perByte = 8 / bits;
         uint address = CgaMemory + (uint)(((y & 1) << 13) + ((y >> 1) * 80) + (x / perByte));
         int shift = (perByte - 1 - (x % perByte)) * bits;
         int mask = ((1 << bits) - 1) << shift;
-        byte b = cga.Read(address);
+        byte b = Read(address);
         if (color is { } c)
         {
             int value = ((c & ((1 << bits) - 1)) << shift) & mask;
             b = (c & 0x80) != 0 ? (byte)(b ^ value) : (byte)((b & ~mask) | value);
-            cga.Write(address, b);
+            Write(address, b);
         }
 
         return (byte)((b & mask) >> shift);
     }
 
-    /// <summary>INT 10h AH=10h: the palette. Only the DAC's 256 colors matter in the 256-color modes.</summary>
+    /// <summary>
+    /// INT 10h AH=10h: the palette. The attribute controller's registers, which pick each of the
+    /// 16 colors from the DAC (and the border's), as the EGA had them; and the DAC's 256 colors.
+    /// </summary>
     private void PaletteService()
     {
         int bx = (ushort)Cpu.Ebx, cx = (ushort)Cpu.Ecx, dx = (ushort)Cpu.Edx;
+        byte bh = (byte)(bx >> 8);
         switch (Al)
         {
+            case 0x00:
+                // one register, BL, to BH
+                _vga.SetAttribute(bx & 0x1F, bh);
+                break;
+            case 0x01:
+                _vga.SetAttribute(0x11, bh);
+                break;
+            case 0x02:
+                // the 16 and the border's from ES:DX
+                for (int i = 0; i < 17; i++)
+                {
+                    _vga.SetAttribute(i == 16 ? 0x11 : i, ReadByte(Cpu.Es, (uint)(dx + i)));
+                }
+
+                break;
+            case 0x03:
+            {
+                // BL 1 has the attribute's top bit blink the character, 0 brighten the background
+                byte control = _vga.GetAttribute(0x10);
+                _vga.SetAttribute(0x10, (byte)((bx & 1) != 0 ? control | 0x08 : control & ~0x08));
+                break;
+            }
+
+            case 0x07:
+                SetBx((_vga.GetAttribute(bx & 0x1F) << 8) | (bx & 0xFF));
+                break;
+            case 0x08:
+                SetBx((_vga.GetAttribute(0x11) << 8) | (bx & 0xFF));
+                break;
+            case 0x09:
+                for (int i = 0; i < 17; i++)
+                {
+                    WriteByte(Cpu.Es, (uint)(dx + i), _vga.GetAttribute(i == 16 ? 0x11 : i));
+                }
+
+                break;
             case 0x10:
                 _vga.SetColor(bx & 0xFF, dx >> 8, cx >> 8, cx & 0xFF);
                 break;
@@ -385,7 +468,7 @@ public sealed partial class Machine
 
                 break;
             default:
-                // the EGA's 16-entry palette and the rest, which 256-color modes don't use
+                // the DAC's pages of colors and its gray summing, which games don't use
                 Trace($"10/10 palette function {Al:X2}h ignored");
                 break;
         }

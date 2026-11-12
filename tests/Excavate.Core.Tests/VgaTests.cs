@@ -25,6 +25,64 @@ public class VgaTests
         Assert.Equal(0xFF00_0000u, pixels[(10 * 320) + 6]);
     }
 
+    [Theory]
+    [InlineData(0x0D, 320, 200)]
+    [InlineData(0x0E, 640, 200)]
+    [InlineData(0x10, 640, 350)]
+    [InlineData(0x12, 640, 480)]
+    [InlineData(0x04, 320, 200)]
+    [InlineData(0x06, 640, 200)]
+    [InlineData(0x03, 640, 400)]
+    public void Each_mode_has_its_size(int mode, int width, int height)
+    {
+        var vga = new Vga();
+        vga.SetMode(mode, clear: true);
+        Assert.Equal((width, height), vga.Size);
+    }
+
+    [Fact]
+    public void A_16_color_pixel_is_a_bit_in_each_plane_through_the_palette_registers()
+    {
+        var vga = new Vga();
+        vga.SetMode(0x10, clear: true);
+
+        // the top left pixel in planes 0 and 2, color 5, and the next in plane 3 alone, color 8
+        vga.Out(0x3C4, 2);
+        vga.Out(0x3C5, 0x05);
+        vga.Write(0xA_0000, 0x80);
+        vga.Out(0x3C5, 0x08);
+        vga.Write(0xA_0000, 0x40);
+
+        // color 8 to bright white, by its palette register: 3Fh among the EGA's 64
+        vga.In(0x3DA);
+        vga.Out(0x3C0, 0x08);
+        vga.Out(0x3C0, 0x3F);
+        vga.Out(0x3C0, 0x20);
+
+        var pixels = new uint[640 * 350];
+        vga.Render(pixels);
+        Assert.Equal(0xFFAA_00AAu, pixels[0]);
+        Assert.Equal(0xFFFF_FFFFu, pixels[1]);
+        Assert.Equal(0xFF00_0000u, pixels[2]);
+    }
+
+    [Fact]
+    public void The_CGAs_modes_are_drawn_from_its_memory_with_odd_lines_in_the_second_half()
+    {
+        var vga = new Vga();
+        vga.SetMode(4, clear: true);
+
+        // the first pixels of lines 0 and 1: colors 1 and 3, bright cyan and white
+        vga.Write(0xB_8000, 0x40);
+        vga.Write(0xB_A000, 0xC0);
+
+        var pixels = new uint[320 * 200];
+        vga.Render(pixels);
+        Assert.Equal(0xFF55_FFFFu, pixels[0]);
+        Assert.Equal(0xFF00_0000u, pixels[1]);
+        Assert.Equal(0xFFFF_FFFFu, pixels[320]);
+    }
+
     [Fact]
     public void Mode_X_writes_reach_the_planes_the_map_mask_picks()
     {

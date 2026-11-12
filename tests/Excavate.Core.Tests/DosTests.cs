@@ -73,6 +73,16 @@ public sealed class DosTests : IDisposable
         Assert.Equal("newginal", File.ReadAllText(Path.Combine(_saves, "SAVE.DAT")));
     }
 
+    [Theory]
+    [InlineData("PHOTO00 .PCC", "PHOTO00.PCC")]
+    [InlineData("MUG003  .PCC", "MUG003.PCC")]
+    [InlineData("SA  ", "SA")]
+    [InlineData(@"DATA\NOTE .  ", @"DATA\NOTE")]
+    public void A_name_is_found_without_the_spaces_DOS_pads_it_with(string path, string found)
+    {
+        Assert.Equal(found, Dos.DosDrive.Join(Dos.DosDrive.Resolve(path, "")!));
+    }
+
     [Fact]
     public void A_directory_is_made_in_the_save_folder_and_removed()
     {

@@ -79,11 +79,28 @@ internal sealed class DosDrive(string gameFolder, string saveFolder)
             }
             else if (part != ".")
             {
-                parts.Add(part);
+                parts.Add(Packed(part));
             }
         }
 
         return [.. parts];
+    }
+
+    /// <summary>
+    /// A name as DOS stores it, without the spaces before its dot or at its end. A directory
+    /// entry keeps a name in 8 characters and an extension in 3, padded with spaces, so DOS
+    /// finds "PHOTO00 .PCC" as PHOTO00.PCC.
+    /// </summary>
+    private static string Packed(string name)
+    {
+        int dot = name.IndexOf('.');
+        if (dot < 0)
+        {
+            return name.TrimEnd(' ');
+        }
+
+        string extension = name[(dot + 1)..].TrimEnd(' ');
+        return extension.Length == 0 ? name[..dot].TrimEnd(' ') : $"{name[..dot].TrimEnd(' ')}.{extension}";
     }
 
     public static string Join(string[] parts) => string.Join('\\', parts);

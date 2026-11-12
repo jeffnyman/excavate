@@ -20,6 +20,10 @@ public sealed partial class Machine
 
     private int ActivePage => ReadByte(0x40, PageField) & 7;
 
+    // the lines in a character the BIOS draws in a graphics mode: the font of the EGA's 350
+    // lines and the VGA's 480 fits 25 and 30 rows in them; the rest have 200 lines and 8
+    private int CharacterHeight => _cga is null ? ReadByte(0x40, HeightField) : 8;
+
     /// <summary>
     /// The BIOS data area's text fields as setting a mode leaves them: the size of a page, the
     /// first page showing, every page's cursor at the top left, and the cursor's shape; on the
@@ -29,7 +33,16 @@ public sealed partial class Machine
     {
         bool text = mode is <= 3 or 7;
         int columns = Columns;
-        WriteWord(0x40, PageSizeField, (ushort)(text ? (columns == 40 ? 0x800 : 0x1000) : _cga is not null ? 0x4000 : 0xFA00));
+        int pageSize = mode switch
+        {
+            _ when text => columns == 40 ? 0x800 : 0x1000,
+            0x0D => 0x2000,
+            0x10 => 0x8000,
+            0x12 => 0xA000,
+            0x13 => 0xFA00,
+            _ => 0x4000,
+        };
+        WriteWord(0x40, PageSizeField, (ushort)pageSize);
         WriteWord(0x40, PageStartField, 0);
         for (uint page = 0; page < 8; page++)
         {
@@ -40,8 +53,8 @@ public sealed partial class Machine
         WriteByte(0x40, PageField, 0);
         if (_cga is null)
         {
-            WriteByte(0x40, RowsField, 24);
-            WriteWord(0x40, HeightField, (ushort)(text ? 16 : 8));
+            WriteByte(0x40, RowsField, (byte)(mode == 0x12 ? 29 : 24));
+            WriteWord(0x40, HeightField, (ushort)(text || mode == 0x12 ? 16 : mode == 0x10 ? 14 : 8));
         }
     }
 
@@ -96,8 +109,11 @@ public sealed partial class Machine
         WriteByte(0x40, PageField, (byte)page);
         int start = page * ReadWord(0x40, PageSizeField);
         WriteWord(0x40, PageStartField, (ushort)start);
-        Crtc(0x0C, (start / 2) >> 8);
-        Crtc(0x0D, (start / 2) & 0xFF);
+
+        // the CRT controller counts text in cells, two bytes each, and the planes in bytes
+        int address = TextMode ? start / 2 : start;
+        Crtc(0x0C, address >> 8);
+        Crtc(0x0D, address & 0xFF);
         var (row, column) = CursorOf(page);
         SetCursor(page, row, column);
     }
@@ -146,13 +162,20 @@ public sealed partial class Machine
                 }
                 else
                 {
-                    for (int line = 0; line < 8; line++)
+                    int cellHeight = CharacterHeight;
+                    for (int line = 0; line < cellHeight; line++)
                     {
                         for (int dot = 0; dot < 8; dot++)
                         {
                             int x = (column * 8) + dot;
-                            byte color = fill ? (VideoMode == 0x13 ? attribute : (byte)0) : GraphicsPixel(x, (from * 8) + line, null);
-                            GraphicsPixel(x, (row * 8) + line, color);
+                            byte color = !fill ? GraphicsPixel(x, (from * cellHeight) + line, null)
+                                : VideoMode switch
+                                {
+                                    4 or 5 or 6 => (byte)0,
+                                    0x13 => attribute,
+                                    _ => (byte)(attribute & 0x0F),
+                                };
+                            GraphicsPixel(x, (row * cellHeight) + line, color);
                         }
                     }
                 }
@@ -161,17 +184,22 @@ public sealed partial class Machine
     }
 
     /// <summary>
-    /// A pixel of the graphics modes the BIOS draws characters in: the CGA's and mode 13h. Written
+    /// A pixel of the graphics modes: the CGA's, the EGA's 16-color ones and mode 13h. Written
     /// when a color is given, with bit 7 XORing it on except in mode 13h; its color returned.
     /// </summary>
     private byte GraphicsPixel(int x, int y, byte? color)
     {
-        if (_cga is not null)
+        if (_cga is not null || VideoMode is 4 or 5 or 6)
         {
             return CgaPixel(x, y, color);
         }
 
-        if (VideoMode != 0x13 || x >= 320 || y >= 200)
+        if (VideoMode != 0x13)
+        {
+            return _vga.PlanarPixel(x, y, color);
+        }
+
+        if (x >= 320 || y >= 200)
         {
             return 0;
         }
@@ -186,21 +214,30 @@ public sealed partial class Machine
     }
 
     /// <summary>
-    /// A character drawn in a graphics mode at a cell, from the 8 by 8 font: its dots in the
-    /// color, the rest in color 0, or with bit 7 of the color (but in mode 13h), XORed on.
+    /// A character drawn in a graphics mode at a cell, from the font of the mode's height: its
+    /// dots in the color, the rest in color 0, or with bit 7 of the color (but in mode 13h),
+    /// XORed on.
     /// </summary>
     private void DrawCharacter(int row, int column, byte character, byte color)
     {
         bool xor = (color & 0x80) != 0 && VideoMode != 0x13;
-        var glyph = RomFont.Glyphs.Slice(character * 8, 8);
-        for (int line = 0; line < 8; line++)
+        int height = CharacterHeight;
+        var font = height switch
+        {
+            14 => RomFont.Glyphs14,
+            16 => RomFont.Glyphs16,
+            _ => RomFont.Glyphs,
+        };
+        height = font.Length / 256;
+        var glyph = font.Slice(character * height, height);
+        for (int line = 0; line < height; line++)
         {
             for (int dot = 0; dot < 8; dot++)
             {
                 bool on = (glyph[line] & (0x80 >> dot)) != 0;
                 if (on || !xor)
                 {
-                    GraphicsPixel((column * 8) + dot, (row * 8) + line, on ? color : (byte)0);
+                    GraphicsPixel((column * 8) + dot, (row * height) + line, on ? color : (byte)0);
                 }
             }
         }
