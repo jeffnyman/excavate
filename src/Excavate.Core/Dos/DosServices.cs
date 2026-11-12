@@ -731,6 +731,14 @@ internal sealed partial class DosServices(Machine machine, DosDrive drive)
             case 0x68:
                 Ok();
                 break;
+            case 0xEA:
+                // NetWare's shell, asked for its version by programs built on C-Worthy, the
+                // library Novell later bought: with no network, DOS answers a function it doesn't
+                // have as it answers any, AL 0 and nothing else, and the caller's buffer is left
+                // as it was
+                machine.Trace($"21/EA NetWare's shell (AL={cpu.Al:X2}h): none");
+                cpu.Al = 0;
+                break;
             default:
                 if (!FileCall(function, cpu))
                 {

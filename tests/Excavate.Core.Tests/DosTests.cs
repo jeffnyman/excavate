@@ -126,6 +126,26 @@ public sealed class DosTests : IDisposable
         Assert.Equal(0xFF, machine.ExitCode);
     }
 
+    [Fact]
+    public void Netwares_shell_isnt_there_and_dos_answers_as_for_any_function_it_lacks()
+    {
+        // Guardians of Infinity, on C-Worthy, asks for NetWare's shell's version:
+        //   mov ax, 0EA01h; int 21h; mov ah, 4Ch; int 21h      exits with what AL was left
+        var machine = Start([0xB8, 0x01, 0xEA, 0xCD, 0x21, 0xB4, 0x4C, 0xCD, 0x21]);
+
+        Assert.Equal(0, machine.ExitCode);
+    }
+
+    [Fact]
+    public void Without_a_multitasker_the_video_buffer_is_the_screen()
+    {
+        // it asks TopView's call for a buffer to write the screen in, given its own address:
+        //   mov ah, 0FEh; mov di, 1234h; int 10h; mov ax, di; mov ah, 4Ch; int 21h
+        var machine = Start([0xB4, 0xFE, 0xBF, 0x34, 0x12, 0xCD, 0x10, 0x89, 0xF8, 0xB4, 0x4C, 0xCD, 0x21]);
+
+        Assert.Equal(0x34, machine.ExitCode);
+    }
+
     [Theory]
     [InlineData("PHOTO00 .PCC", "PHOTO00.PCC")]
     [InlineData("MUG003  .PCC", "MUG003.PCC")]

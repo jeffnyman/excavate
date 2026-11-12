@@ -321,6 +321,12 @@ public sealed partial class Machine
             case 0x4F:
                 // VESA: there's none, which a caller tells from AL not being 4Fh
                 break;
+            case 0xFE or 0xFF:
+                // TopView's video buffer, and its update, which DESQview and Windows answered for
+                // the programs they ran: with no multitasker the BIOS doesn't know them, and ES:DI,
+                // left as they were, are the screen itself
+                Trace($"10/{Ah:X2} no multitasker's video buffer");
+                break;
             default:
                 throw new NotSupportedException($"INT 10h function {Ah:X2}h isn't provided.");
         }
