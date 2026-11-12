@@ -118,10 +118,37 @@ straight to the welcome.
 
 ![A dossier](images/president-dossier.png)
 
-## Still to look at
+## Its own clock
 
-The game keeps a clock of its own. At the end of `SA`, after the answers, are a date, a time
-and a BIOS tick count. At logon the game sets the PC's clock to them, through DOS (functions
-2Bh and 2Dh) and the BIOS (INT 1Ah function 01h). At logoff it saves the clock back and puts
-the real date back. That's why `SIS.BAT` runs `DATE` and `TIME` after the game. Excavate's DOS
-doesn't let a program set its date and time yet, so for now the game's clock is your own.
+The story has a clock, and the game borrows the PC's to keep it. At the end of `SA`, after a
+`~` that ends the answers, are a date, a time and a BIOS tick count. The profile as it shipped
+starts the story on June 22, 1996, at 00:30:45.
+
+![The base menu, on the story's date](images/president-base.png)
+
+At logon the game keeps the PC's real date and tick count. Then it sets the clock to the
+story's, three ways: the date through DOS (function 2Bh), the time through DOS (function 2Dh),
+and the tick count through the BIOS (INT 1Ah function 01h). While you play, the PC's clock is
+the story's, and the menus show it.
+
+At logoff it saves the story's date and time back into the profile. Then it puts the real
+clock back, moved on by the time you played. It reads the tick count, works out how many
+ticks have passed since logon, and adds them to the real tick count it kept. A day's
+rollover, which INT 1Ah reports, goes onto the real day of the month, without a check that
+the month has that many days. Then it sets the real date. The story's clock only runs while
+you play. `SIS.BAT` runs `DATE` and `TIME` after the game anyway, so you can check.
+
+The time has a bug. The game saves DOS's time from function 2Ch with DX (seconds and
+hundredths) where it later reads CX (hours and minutes), and the other way around. So at
+logon it asks DOS for a time like 31:13, and DOS turns it down. The story's time survives
+anyway, because the tick count it sets right after is the time, as far as DOS is concerned.
+
+Excavate's DOS works as a PC's did for this. DOS's time is the BIOS's tick count, which starts
+at the host's time of day, as DOS set it from the AT's clock at boot. DOS keeps the date
+itself, starting at the host's, and moves it on a day when the tick count passes midnight.
+Programs can set both. Your own computer's clock is never touched.
+
+eXoDOS's copy has a curious sign of this clock. Many of its files are dated June 22, 1996:
+the message tables and their `.TBB` copies, `AGENT.FIL` and `AGENT.FIB`, `START.EXE`, and
+`R-PIM.COM` itself. That's the story's first day. It suggests the PC they were last written
+on still had the game's date.

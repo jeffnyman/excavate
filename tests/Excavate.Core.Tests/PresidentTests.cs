@@ -134,6 +134,28 @@ public sealed class PresidentTests : IDisposable
     }
 
     [Fact]
+    public void The_game_runs_on_its_own_clock_and_puts_the_real_one_back()
+    {
+        if (Start("PRES.EXE") is not { } machine)
+        {
+            return;
+        }
+
+        // logged on, the PC's date is the story's, from the end of the profile
+        Type(machine, "2UNDERDOGS|SCIN| ");
+        Assert.Contains("JUN 22,1996", Screen(machine));
+
+        // logged off, it's back to the real one, and the story's clock is saved in the profile:
+        // after the answers and a '~', the date (DX, then CX for the year) and the time
+        Type(machine, "vvvv!Y");
+        Assert.True(machine.Exited);
+        Assert.Contains($"21/2B date set to {DateTime.Today:yyyy-MM-dd}", _log);
+        var profile = File.ReadAllBytes(Path.Combine(_saves, "SA"));
+        int clock = Array.IndexOf(profile, (byte)'~') + 1;
+        Assert.Equal([0x16, 0x06, 0xCC, 0x07], profile[clock..(clock + 4)]);
+    }
+
+    [Fact]
     public void The_EGA_shows_a_photo_at_640_by_350()
     {
         if (Start("PRES.EXE") is not { } machine)

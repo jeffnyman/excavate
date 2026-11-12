@@ -414,6 +414,59 @@ internal sealed partial class DosServices(Machine machine, DosDrive drive)
         return null;
     }
 
+    // ---- the clock ---------------------------------------------------------------------------
+
+    /// <summary>
+    /// DOS's date. Its time of day is the BIOS's tick count; the date is DOS's own, moved on a
+    /// day when the tick count passes midnight. Programs can set both (functions 2Bh and 2Dh),
+    /// and the machine's clock goes on from there, the host's left alone.
+    /// </summary>
+    internal DateTime Date { get; set; }
+
+    // the date, moved on if the tick count has passed midnight since DOS last looked
+    private DateTime Today()
+    {
+        if (machine.PassedMidnight())
+        {
+            Date = Date.AddDays(1);
+        }
+
+        return Date;
+    }
+
+    /// <summary>Sets the date, from 1980 to 2099 as DOS allows; whether it was a date.</summary>
+    private bool SetDate(int year, int month, int day)
+    {
+        if (year is < 1980 or > 2099 || month is < 1 or > 12 || day < 1 || day > DateTime.DaysInMonth(year, month))
+        {
+            machine.Trace($"21/2B date {year}-{month:D2}-{day:D2} isn't one");
+            return false;
+        }
+
+        machine.PassedMidnight();
+        Date = new DateTime(year, month, day);
+        machine.Trace($"21/2B date set to {Date:yyyy-MM-dd}");
+        return true;
+    }
+
+    /// <summary>Sets the time of day, as the BIOS's tick count; whether it was a time.</summary>
+    private bool SetTime(int hour, int minute, int second, int hundredths)
+    {
+        if (hour > 23 || minute > 59 || second > 59 || hundredths > 99)
+        {
+            machine.Trace($"21/2D time {hour}:{minute:D2}:{second:D2}.{hundredths:D2} isn't one");
+            return false;
+        }
+
+        // past midnight, the date moves on before the time goes back
+        Today();
+        // rounded up to the next tick, so the time reads back as it was set
+        double seconds = (hour * 3600) + (minute * 60) + second + (hundredths / 100.0);
+        machine.TickCount = Math.Min((uint)Math.Ceiling(seconds * Machine.TicksPerSecond), Machine.TicksPerDay - 1);
+        machine.Trace($"21/2D time set to {hour:D2}:{minute:D2}:{second:D2}.{hundredths:D2}");
+        return true;
+    }
+
     // ---- for the DPMI host ------------------------------------------------------------------
 
     /// <summary>The running program's PSP segment.</summary>
@@ -542,27 +595,31 @@ internal sealed partial class DosServices(Machine machine, DosDrive drive)
                 break;
             case 0x2A:
             {
-                var now = DateTime.Now;
-                cpu.Cx = (ushort)now.Year;
-                cpu.Dh = (byte)now.Month;
-                cpu.Dl = (byte)now.Day;
-                cpu.Al = (byte)now.DayOfWeek;
+                var date = Today();
+                cpu.Cx = (ushort)date.Year;
+                cpu.Dh = (byte)date.Month;
+                cpu.Dl = (byte)date.Day;
+                cpu.Al = (byte)date.DayOfWeek;
                 break;
             }
 
             case 0x2B:
-            case 0x2D:
-                cpu.Al = 0;
+                cpu.Al = SetDate(cpu.Cx, cpu.Dh, cpu.Dl) ? (byte)0 : (byte)0xFF;
                 break;
             case 0x2C:
             {
-                var now = DateTime.Now;
-                cpu.Ch = (byte)now.Hour;
-                cpu.Cl = (byte)now.Minute;
-                cpu.Dh = (byte)now.Second;
-                cpu.Dl = (byte)(now.Millisecond / 10);
+                Today();
+                long hundredths = (long)(machine.TickCount * 100 / Machine.TicksPerSecond);
+                cpu.Ch = (byte)(hundredths / 360_000);
+                cpu.Cl = (byte)(hundredths / 6000 % 60);
+                cpu.Dh = (byte)(hundredths / 100 % 60);
+                cpu.Dl = (byte)(hundredths % 100);
                 break;
             }
+
+            case 0x2D:
+                cpu.Al = SetTime(cpu.Ch, cpu.Cl, cpu.Dh, cpu.Dl) ? (byte)0 : (byte)0xFF;
+                break;
 
             case 0x2F:
                 cpu.Es = _dtaSegment;

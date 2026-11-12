@@ -73,6 +73,59 @@ public sealed class DosTests : IDisposable
         Assert.Equal("newginal", File.ReadAllText(Path.Combine(_saves, "SAVE.DAT")));
     }
 
+    [Fact]
+    public void The_time_set_is_the_BIOSs_tick_count()
+    {
+        // 13:45:00.00: mov cx, 0D2Dh; mov dx, 0; mov ah, 2Dh; int 21h; then read it back and
+        // exit with the minutes: mov ah, 2Ch; int 21h; mov al, cl; mov ah, 4Ch; int 21h
+        var machine = Start(
+        [
+            0xB9, 0x2D, 0x0D, 0xBA, 0x00, 0x00, 0xB4, 0x2D, 0xCD, 0x21,
+            0xB4, 0x2C, 0xCD, 0x21, 0x88, 0xC8, 0xB4, 0x4C, 0xCD, 0x21,
+        ]);
+
+        Assert.Equal(45, machine.ExitCode);
+        uint ticks = machine.Read(0x46C) | ((uint)machine.Read(0x46D) << 8) | ((uint)machine.Read(0x46E) << 16);
+        Assert.InRange(ticks, (uint)(13.75 * 3600 * 18.2065) - 2, (uint)(13.75 * 3600 * 18.2065) + 2);
+    }
+
+    [Fact]
+    public void The_date_set_moves_on_when_the_time_passes_midnight()
+    {
+        // June 22, 1996: mov cx, 1996; mov dx, 0616h; mov ah, 2Bh; int 21h; and 23:59:59.50:
+        // mov cx, 173Bh; mov dx, 3B32h; mov ah, 2Dh; int 21h. Then a wait past midnight
+        // (mov cx, 8000h; loop $), and exit with the day: mov ah, 2Ah; int 21h; mov al, dl;
+        // mov ah, 4Ch; int 21h
+        var machine = Start(
+        [
+            0xB9, 0xCC, 0x07, 0xBA, 0x16, 0x06, 0xB4, 0x2B, 0xCD, 0x21,
+            0xB9, 0x3B, 0x17, 0xBA, 0x32, 0x3B, 0xB4, 0x2D, 0xCD, 0x21,
+            0xB9, 0x00, 0x80, 0xE2, 0xFE,
+            0xB4, 0x2A, 0xCD, 0x21, 0x88, 0xD0, 0xB4, 0x4C, 0xCD, 0x21,
+        ],
+        machine => machine.InstructionsPerSecond = 50_000);
+
+        Assert.Equal(23, machine.ExitCode);
+        Assert.Contains("21/2B date set to 1996-06-22", _log);
+    }
+
+    [Theory]
+    [InlineData(0x2D, 0x1800, 0x0000)]  // 24:00
+    [InlineData(0x2D, 0x0C3C, 0x0000)]  // 12:60
+    [InlineData(0x2B, 1996, 0x021E)]    // February 30
+    [InlineData(0x2B, 1979, 0x0101)]    // before DOS's first year
+    public void A_date_or_time_that_isnt_one_is_turned_down(int function, int cx, int dx)
+    {
+        // mov cx, cx; mov dx, dx; mov ah, function; int 21h; mov ah, 4Ch; int 21h
+        var machine = Start(
+        [
+            0xB9, (byte)cx, (byte)(cx >> 8), 0xBA, (byte)dx, (byte)(dx >> 8), 0xB4, (byte)function, 0xCD, 0x21,
+            0xB4, 0x4C, 0xCD, 0x21,
+        ]);
+
+        Assert.Equal(0xFF, machine.ExitCode);
+    }
+
     [Theory]
     [InlineData("PHOTO00 .PCC", "PHOTO00.PCC")]
     [InlineData("MUG003  .PCC", "MUG003.PCC")]

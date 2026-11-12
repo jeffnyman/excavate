@@ -35,7 +35,7 @@ public sealed partial class Machine
     private const ushort FileTables = 0x0580;
 
     // the ticks in a day: the timer's 18.2 a second for 24 hours
-    private const uint TicksPerDay = 0x1800B0;
+    internal const uint TicksPerDay = 0x1800B0;
 
 
     private void InstallBios()
@@ -152,6 +152,12 @@ public sealed partial class Machine
             WriteByte(0x40, 0x89, 0x11);
         }
 
+        // the time of day, as DOS sets it at boot from the AT's real-time clock: the BIOS's tick
+        // count, which DOS's time is, and DOS's date
+        var now = DateTime.Now;
+        TickCount = (uint)(now.TimeOfDay.TotalSeconds * TicksPerSecond);
+        _dos.Date = now.Date;
+
         // the model byte at F000:FFFE: FCh, an AT-class machine
         WriteRom(0xF_FFFE, [0xFC]);
 
@@ -172,16 +178,40 @@ public sealed partial class Machine
     /// </summary>
     private void TimerTick()
     {
-        uint ticks = ReadWord(0x40, 0x6C) | ((uint)ReadWord(0x40, 0x6E) << 16);
-        if (++ticks >= TicksPerDay)
+        uint ticks = TickCount + 1;
+        if (ticks >= TicksPerDay)
         {
             ticks = 0;
             WriteByte(0x40, 0x70, 1);
         }
 
-        WriteWord(0x40, 0x6C, (ushort)ticks);
-        WriteWord(0x40, 0x6E, (ushort)(ticks >> 16));
+        TickCount = ticks;
         _pic.EndOfInterrupt();
+    }
+
+    /// <summary>The ticks of the timer a second, at the BIOS's rate: the timer's 1,193,180 Hz over 65,536.</summary>
+    internal const double TicksPerSecond = 1_193_180.0 / 65_536;
+
+    /// <summary>The BIOS's count of the timer's ticks since midnight, in its data area.</summary>
+    internal uint TickCount
+    {
+        get => ReadWord(0x40, 0x6C) | ((uint)ReadWord(0x40, 0x6E) << 16);
+        set
+        {
+            WriteWord(0x40, 0x6C, (ushort)value);
+            WriteWord(0x40, 0x6E, (ushort)(value >> 16));
+        }
+    }
+
+    /// <summary>
+    /// Whether the tick count has passed midnight since it was last asked, which reading it
+    /// through INT 1Ah or DOS clears: DOS moves its date on by a day when it sees it.
+    /// </summary>
+    internal bool PassedMidnight()
+    {
+        bool passed = ReadByte(0x40, 0x70) != 0;
+        WriteByte(0x40, 0x70, 0);
+        return passed;
     }
 
     internal void SetVector(int vector, ushort segment, ushort offset)
