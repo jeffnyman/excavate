@@ -442,9 +442,17 @@ internal static class Program
         if (which == 0)
         {
             Console.WriteLine($"{game.Title}: {documents.Count} documents; --documents <n> shows one, --documents all every one");
+            string? group = null;
             foreach (var document in documents)
             {
-                Console.WriteLine($"{document.Number,3}  {document.Title}");
+                if (document.Group != group)
+                {
+                    group = document.Group;
+                    Console.WriteLine();
+                    Console.WriteLine($"{char.ToUpperInvariant(group[0])}{group[1..]}:");
+                }
+
+                Console.WriteLine($"{document.Number,4}  {document.Title}");
             }
 
             return Done;
@@ -463,7 +471,7 @@ internal static class Program
                 Console.WriteLine();
             }
 
-            Console.WriteLine($"--- {shown[n].Number}: {shown[n].Title}");
+            Console.WriteLine($"--- {shown[n].Number}, from {shown[n].Group}");
             Console.Write(shown[n].Text);
         }
 
@@ -537,7 +545,7 @@ internal static class Program
               --headless         no window: run --seconds seconds and stop
               --documents [n]    list the documents a game keeps, rather than play it, or show the
                                  one numbered n, or all of them (The President Is Missing's data
-                                 base, its Top Secret files included)
+                                 base, its Top Secret files included, and its messages)
 
             playing:
               the keyboard is the PC's, key for key

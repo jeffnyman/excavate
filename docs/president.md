@@ -18,7 +18,7 @@ The game ran from a hard disk, copied there from its floppies. The copy here, eX
 | `SU.EXE` | Setup, 4,054 bytes, which makes your profile |
 | `SA` | The profile: your code name, your supervisor's name, and the rest you gave setup |
 | `SA.B` | The profile as it shipped, before setup |
-| `*.FIL`, `*.TBL` | The game's messages and its tables of them, with `*.TBB` copies of the tables as they shipped |
+| `*.FIL`, `*.TBL` | The game's messages, in the same encoding as `START.EXE`, and its tables of them, with `*.TBB` copies of the tables as they shipped |
 | `START.EXE` | Not a program: the database's documents, Top Secret files included; see below |
 | `RECD.TBL` | Where each document starts in `START.EXE` |
 | `MUG001.PCC` to `MUG038.PCC` | The dossiers' mugshots |
@@ -211,17 +211,42 @@ files are.
 
 ### Reading them without playing
 
-Excavate can show every document of the database, the Top Secret files included, from your
-copy of the game, without playing it:
+Excavate can show every document of the database, the Top Secret files included, and every
+message the game can send you, from your copy of the game, without playing it:
 
 ```
-excavate president --documents         the 14 documents, by number and title
-excavate president --documents 13       NSC 513324, "THE SUN RISES ASCAROTH"
-excavate president --documents all      every one
+excavate president --documents         all 204, by number and title, grouped by who sent them
+excavate president --documents 13      NSC 513324, "THE SUN RISES ASCAROTH"
+excavate president --documents all     every one
 ```
 
-It reads `RECD.TBL` for where each starts, and undoes the rotation of `START.EXE`'s bytes. Its
-numbers count from 1, the table's entries from 0, so the Top Secret files are 13 and 14.
+It reads `RECD.TBL` for where each document starts, and undoes the rotation of `START.EXE`'s
+bytes. Its numbers count from 1, the table's entries from 0, so the Top Secret files are 13
+and 14.
+
+The messages are kept the same way, a file of them and a table of where each starts:
+
+| File | Its table's letter | Messages | From |
+|---|---|---|---|
+| `BULLMSG.FIL` | B | 45 | Bulletins, news of the case |
+| `MEMO.FIL` | M | 23 | Staff memos |
+| `OBJMSG.FIL` | X | 63 | Agents, reporting on the objectives you sent them after |
+| `SDMSG.FIL` | S | 50 | The State Department, answering what you asked |
+| `CADMSG.FIL` | C | 9 | The cryptographics lab, C.A.D., with what it made of coded text |
+
+Each table has a ten-byte record for each message: two letters, the second the one above, the
+message's offset in its file, two numbers, and two bytes more, `FF` in all but the agents'
+table, which numbers its messages instead. The first of the two numbers is the same for each
+file's messages: 12,600 for bulletins, 360 for memos, 7,200 for agents, 6,480 for the State
+Department and 21,600 for the lab, but for the first bulletin (720) and the first memo (540).
+As seconds, those are 3½ hours, 6 minutes, 2 hours, 1.8 hours and 6 hours, and 12 and 9
+minutes, much like the waits the game is known for; that they're the waits is
+still to check.
+
+The game writes to the tables as you play, which is why it ships copies of them (`*.TBB`) for
+`RESET.BAT` to put back. In eXoDOS's copy, played a little, only the bulletins' and the memos'
+first records have changed: their first byte (05h to `R`, 03h to `Q`) and their second number,
+0 as shipped.
 
 ### Numbered access codes
 
