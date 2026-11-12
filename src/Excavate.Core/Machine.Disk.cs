@@ -83,6 +83,80 @@ public sealed partial class Machine
     public void RestoreSectors(int disk, int cylinder, int head, int first, int last)
         => _floppies[disk].Restore(cylinder, head, first, last);
 
+    /// <summary>
+    /// Answers a game's prompt for another disk as the player would: when the program waits for
+    /// a key there, the disk goes in drive A: and a key is pressed. The program runs unchanged;
+    /// the prompt is only answered for it.
+    /// </summary>
+    /// <param name="keyWait">
+    /// Where the program asks the BIOS for a key: the offset, in the program's image, of the
+    /// instruction after its <c>INT 16h</c>.
+    /// </param>
+    /// <param name="caller">
+    /// The offset in the image that the routine with that <c>INT 16h</c> returns to when it's the
+    /// prompt that called it: the instruction after the prompt's near call, its return address
+    /// being the first word on the stack below the interrupt's.
+    /// </param>
+    /// <param name="disk">The disk the prompt asks for, counting from 0.</param>
+    public void AnswerDiskPrompt(int keyWait, int caller, int disk)
+        => _diskPrompts.Add(new DiskPrompt(keyWait, caller, disk, -1, ""));
+
+    /// <summary>Answers a prompt for a disk whose number the program keeps in memory, as the digit it shows.</summary>
+    /// <param name="keyWait"><inheritdoc cref="AnswerDiskPrompt(int, int, int)" path="/param[@name='keyWait']"/></param>
+    /// <param name="caller"><inheritdoc cref="AnswerDiskPrompt(int, int, int)" path="/param[@name='caller']"/></param>
+    /// <param name="digitAt">The offset in the image of the byte holding the disk's digit.</param>
+    /// <param name="digits">What that byte holds for each disk, disk 1's first: "123" for the plain digits.</param>
+    public void AnswerDiskPrompt(int keyWait, int caller, int digitAt, string digits)
+        => _diskPrompts.Add(new DiskPrompt(keyWait, caller, -1, digitAt, digits));
+
+    /// <summary>The segment the running program's image was loaded at, just past its PSP.</summary>
+    internal ushort ProgramSegment => (ushort)(_dos.Psp + 0x10);
+
+    // a prompt for another disk: where it waits for a key, and which disk it wants, as a number
+    // or a digit in memory; offsets are in the program's image
+    private readonly record struct DiskPrompt(int KeyWait, int Caller, int Disk, int DigitAt, string Digits);
+
+    [NotSaved]
+    private readonly List<DiskPrompt> _diskPrompts = [];
+
+    /// <summary>
+    /// When the program waits for a key at a prompt for another disk, puts the disk it asks for
+    /// in the drive and a key in the BIOS's buffer: Space. Called from INT 16h with its frame on
+    /// the stack, when no key is waiting.
+    /// </summary>
+    private void AnswerDiskPrompt()
+    {
+        if (_diskPrompts.Count == 0 || (Cpu.Cr0 & 1) != 0)
+        {
+            return;
+        }
+
+        uint image = (uint)ProgramSegment << 4;
+        ushort sp = (ushort)Cpu.Esp;
+        uint returns = ((uint)ReadWord(Cpu.Ss, (ushort)(sp + 2)) << 4) + ReadWord(Cpu.Ss, sp);
+        uint called = ((uint)ReadWord(Cpu.Ss, (ushort)(sp + 2)) << 4) + ReadWord(Cpu.Ss, (ushort)(sp + 6));
+        foreach (var prompt in _diskPrompts)
+        {
+            if (returns != image + (uint)prompt.KeyWait || called != image + (uint)prompt.Caller)
+            {
+                continue;
+            }
+
+            int disk = prompt.DigitAt < 0 ? prompt.Disk : prompt.Digits.IndexOf((char)Read(image + (uint)prompt.DigitAt));
+            if (disk < 0 || disk >= _floppies.Count)
+            {
+                // a disk the player doesn't have: the prompt is theirs to answer
+                Trace($"disk prompt for a disk not given: {disk + 1}");
+                return;
+            }
+
+            Trace($"disk prompt: disk {disk + 1} put in drive A:, and Space pressed");
+            Floppy = disk;
+            AddToBuffer(0x3920);
+            return;
+        }
+    }
+
     /// <summary>The disk in drive A:, or null.</summary>
     internal FloppyDisk? DiskInDrive => _floppy < 0 ? null : _floppies[_floppy];
 

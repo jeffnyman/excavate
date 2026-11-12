@@ -2,6 +2,8 @@
 Excavate.Core.Machine
 Excavate.Core.Machine.A20.get -> bool
 Excavate.Core.Machine.A20.set -> void
+Excavate.Core.Machine.AnswerDiskPrompt(int keyWait, int caller, int digitAt, string! digits) -> void
+Excavate.Core.Machine.AnswerDiskPrompt(int keyWait, int caller, int disk) -> void
 Excavate.Core.Machine.Composite.get -> bool
 Excavate.Core.Machine.Composite.set -> void
 Excavate.Core.Machine.Cpu.get -> Excavate.Core.Processors.Intel386!

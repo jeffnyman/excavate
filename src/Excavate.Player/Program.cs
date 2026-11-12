@@ -306,8 +306,22 @@ internal static class Program
                 }
             }
 
+            // and its prompts for another disk, answered for the player
+            foreach (var prompt in game.Known?.Disks?.Prompts ?? [])
+            {
+                if (prompt.DigitAt >= 0)
+                {
+                    machine.AnswerDiskPrompt(prompt.KeyWait, prompt.Caller, prompt.DigitAt, prompt.Digits);
+                }
+                else
+                {
+                    machine.AnswerDiskPrompt(prompt.KeyWait, prompt.Caller, prompt.Disk);
+                }
+            }
+
             string names = string.Join(", ", disks.Select((disk, n) => $"{n + 1} {Path.GetFileName(disk)}"));
-            Console.WriteLine($"excavate: disks {names}; Ctrl+F1 to Ctrl+F{Math.Min(disks.Length, 4)} put one in drive A:");
+            string prompts = game.Known?.Disks?.Prompts is { Length: > 0 } ? ", and the game's prompts for one are answered for you" : "";
+            Console.WriteLine($"excavate: disks {names}; Ctrl+F1 to Ctrl+F{Math.Min(disks.Length, 4)} put one in drive A:{prompts}");
         }
 
         machine.Load(game.Program, arguments);

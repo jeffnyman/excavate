@@ -270,4 +270,76 @@ public sealed class PortalTests : IDisposable
         Assert.NotEqual(inside, Picture(machine));
         Assert.False(machine.Exited);
     }
+
+    /// <summary>
+    /// Moves the story on to a level, as finishing the one before does: its number, at 213h in
+    /// the game's state, and the flag at 215h that has it check, at the next dataspace, that
+    /// the level's disk is in. Levels 2 and 3 are on disk 2, and 4 and 5 on disk 3.
+    /// </summary>
+    private static void ToLevel(Machine machine, int level)
+    {
+        uint state = (machine.ProgramSegment + 0x584u) << 4;
+        machine.Write(state + 0x213, (byte)level);
+        machine.Write(state + 0x215, 1);
+    }
+
+    [Fact]
+    public void It_asks_for_the_disk_its_level_is_on()
+    {
+        if (Start() is not { } machine)
+        {
+            return;
+        }
+
+        LogIn(machine);
+        ToLevel(machine, 2);
+        Type(machine, " ");
+        machine.Run(machine.InstructionsPerSecond * 6);
+        var prompt = Picture(machine);
+        Screenshot.WritePng(machine, Path.Combine(Shots, "portal-disk-prompt.png"));
+
+        // it read disk 1's label, found it isn't disk 2, and asks; a key with disk 1 still in
+        // has it read the label again and ask again
+        Assert.Contains("13/02 read 1 at 34/0/8, disk 1: 1 done, status 00h", _log);
+        Type(machine, " ");
+        machine.Run(machine.InstructionsPerSecond * 6);
+        Assert.Equal(prompt, Picture(machine));
+
+        // with disk 2 in, a key, and it carries on from disk 2
+        int mark = _log.Count;
+        machine.Floppy = 1;
+        Type(machine, " ");
+        machine.Run(machine.InstructionsPerSecond * 6);
+        Assert.Contains("13/02 read 1 at 34/0/8, disk 2: 1 done, status 00h", _log.Skip(mark));
+        Assert.NotEqual(prompt, Picture(machine));
+        Assert.False(machine.Exited);
+    }
+
+    [Theory]
+    [InlineData(2, 2, "34/0/8")]
+    [InlineData(4, 3, "36/1/8")]
+    public void Its_prompts_for_a_disk_can_be_answered_for_the_player(int level, int disk, string label)
+    {
+        if (Start() is not { } machine)
+        {
+            return;
+        }
+
+        // the two prompts, as the player knows them: the level's disk, by the digit it keeps
+        // (made 4 for disk 3 once it's shown), and disk 1
+        machine.AnswerDiskPrompt(0x10970, 0x11EFA, 0x2F67, "124");
+        machine.AnswerDiskPrompt(0x10970, 0x1236B, 0);
+        LogIn(machine);
+        ToLevel(machine, level);
+        Type(machine, " ");
+        machine.Run(machine.InstructionsPerSecond * 6);
+
+        // asked once, answered with the level's disk, and its label read from that: disk 2's
+        // at 34/0/8, disk 3's at 36/1/8
+        Assert.Single(_log, line => line.StartsWith("disk prompt", StringComparison.Ordinal));
+        Assert.Contains($"disk prompt: disk {disk} put in drive A:, and Space pressed", _log);
+        Assert.Contains($"13/02 read 1 at {label}, disk {disk}: 1 done, status 00h", _log);
+        Assert.Equal(disk - 1, machine.Floppy);
+        Assert.False(machine.Exited);
+    }
 }

@@ -51,8 +51,9 @@ With no game named, a menu lists them. `--help` lists the options.
 - **F11** is full screen, **Shift+F11** the pixel shape, **F12** full speed on and off, and
   **Pause** pauses.
 - **Ctrl+F5** saves the whole machine's state, and **Ctrl+F9** loads it back.
-- **Ctrl+F1** to **Ctrl+F4** put disk 1 to 4 in drive A:, for a game played from its disks,
-  when it asks for another.
+- **Ctrl+F1** to **Ctrl+F4** put disk 1 to 4 in drive A:, for a game played from its disks.
+  Where Excavate knows a game's prompts for another disk, as in *Portal*, it answers them for
+  you: the disk goes in and the game carries on.
 - **Ctrl+F11** switches a CGA game between an RGB monitor and a composite one, where patterns
   of dots blend into colors of their own; `--composite` starts with it.
 

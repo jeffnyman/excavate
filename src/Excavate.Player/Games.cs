@@ -14,12 +14,24 @@ namespace Excavate.Player;
 internal sealed record ExtraSectors(int Disk, int Cylinder, int Head, int First, int Last);
 
 /// <summary>
+/// A place a game asks for another disk, which the player answers for you: where it waits for
+/// a key, and which disk it wants. Offsets are in the game's program image.
+/// </summary>
+/// <param name="KeyWait">The instruction after the <c>INT 16h</c> it waits for a key with.</param>
+/// <param name="Caller">The instruction after the prompt's call to the routine that waits.</param>
+/// <param name="Disk">The disk it asks for, counting from 0, when it's always the same one.</param>
+/// <param name="DigitAt">Otherwise, the byte holding the digit it shows for the disk.</param>
+/// <param name="Digits">What that byte holds for each disk, disk 1's first.</param>
+internal sealed record DiskPrompt(int KeyWait, int Caller, int Disk = 0, int DigitAt = -1, string Digits = "");
+
+/// <summary>
 /// How a game played from its floppy disks has them: the images in its folder are its disks,
 /// the one with a file named here first and the rest in the order of their names.
 /// </summary>
 /// <param name="FirstDisk">A file in the first disk's root directory, which tells it from the others.</param>
 /// <param name="Protection">The extra sectors to put back on the disks.</param>
-internal sealed record DiskSet(string FirstDisk, ExtraSectors[] Protection);
+/// <param name="Prompts">Where it asks for another disk, for the player to answer.</param>
+internal sealed record DiskSet(string FirstDisk, ExtraSectors[] Protection, DiskPrompt[]? Prompts = null);
 
 /// <summary>
 /// A game the player knows by a short name: what it is, how its folder is recognized, and what
@@ -93,10 +105,16 @@ internal static class Games
     public static readonly KnownGame[] Known =
     [
         // Portal: an 8088's pace, since it times its pauses by counting loops; its disk 1's
-        // track 9 had sectors 1 to 16, of which a dump keeps nine; and its joystick, if you say
-        // you have one, is only ever four arrows and a button, which the mouse can be
+        // track 9 had sectors 1 to 16, of which a dump keeps nine; its two prompts for a disk,
+        // both waiting in its key routine: for the story's level's disk, whose digit it keeps
+        // at 2F67h (with 3 made 4 once it's shown), and for disk 1, before restoring a saved
+        // position; and its joystick, if you say you have one, is only ever four arrows and a
+        // button, which the mouse can be
         new("portal", "Portal", 1986, ["PORTAL.EXE"], @"A:\PORTAL.EXE", Pc, "new: it plays to Central Processing, and further is untried",
-            VideoAdapter.Cga, new DiskSet("PORTAL.EXE", [new ExtraSectors(0, 9, 0, 10, 16)]), MouseJoystick: true),
+            VideoAdapter.Cga,
+            new DiskSet("PORTAL.EXE", [new ExtraSectors(0, 9, 0, 10, 16)],
+                [new DiskPrompt(0x10970, 0x11EFA, DigitAt: 0x2F67, Digits: "124"), new DiskPrompt(0x10970, 0x1236B, Disk: 0)]),
+            MouseJoystick: true),
         new("metropolis", "Metropolis", 1987, ["METRO.SCR"], null, Tandy, "boots from its own disks, which Excavate doesn't do yet"),
         new("kennedy", "Guardians of Infinity: To Save Kennedy", 1988, ["GOI.EXE"], "KENNEDY.BAT", Pc, Untried),
         new("president", "The President Is Missing", 1988, ["PRES.EXE"], "PRES.EXE", Pc, Untried),

@@ -427,6 +427,11 @@ public sealed partial class Machine
         {
             case 0x00:
             case 0x10:
+                if (FromBuffer(take: false) is null)
+                {
+                    AnswerDiskPrompt();
+                }
+
                 if (FromBuffer(take: true) is { } key)
                 {
                     SetAx(key);
@@ -443,6 +448,11 @@ public sealed partial class Machine
                 // polling for a key with them off still gets the keyboard's interrupt, before
                 // the IRET puts its flags back
                 Cpu.Eflags |= Intel386.Flag.Interrupt;
+                if (FromBuffer(take: false) is null)
+                {
+                    AnswerDiskPrompt();
+                }
+
                 if (FromBuffer(take: false) is { } waiting)
                 {
                     SetAx(waiting);

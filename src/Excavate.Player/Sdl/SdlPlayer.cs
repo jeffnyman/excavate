@@ -96,9 +96,13 @@ internal sealed unsafe class SdlPlayer : IDisposable
     private long _frames;
     private long _instructions;
 
+    // the disk last said to be in drive A:, to say when the machine answers a game's prompt for another
+    private int _floppyShown;
+
     public SdlPlayer(Machine machine, PlayerOptions options)
     {
         _machine = machine;
+        _floppyShown = machine.Floppy;
         _options = options;
         // the captured mouse's motion as the desktop's pointer would move, not in the mouse's raw
         // counts, which depend on its resolution: the motion is then in the window's units
@@ -227,6 +231,16 @@ internal sealed unsafe class SdlPlayer : IDisposable
         long due = (long)(_frames * (double)_machine.InstructionsPerSecond / FrameRate);
         bool running = _machine.Run(due - _instructions);
         _instructions = due;
+        if (_machine.Floppy != _floppyShown)
+        {
+            // the game asked for a disk, and it was put in for the player
+            _floppyShown = _machine.Floppy;
+            if (_floppyShown >= 0)
+            {
+                Message($"disk {_floppyShown + 1} in drive A:, as the game asked");
+            }
+        }
+
         if (_options.MouseJoystick)
         {
             _mouseStick.Frame(_machine.JoystickReadings);
@@ -368,6 +382,7 @@ internal sealed unsafe class SdlPlayer : IDisposable
                     if (disk < _machine.Floppies)
                     {
                         _machine.Floppy = disk;
+                        _floppyShown = disk;
                         Message($"disk {disk + 1} in drive A:");
                     }
                 }
@@ -538,6 +553,7 @@ internal sealed unsafe class SdlPlayer : IDisposable
         {
         }
 
+        _floppyShown = _machine.Floppy;
         Message("state loaded");
     }
 

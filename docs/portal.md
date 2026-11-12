@@ -89,8 +89,8 @@ Mok. Comparing the two programs shows what Portal needs from the machine:
   white where the original showed cyan, magenta and light gray.
 
 Excavate uses none of it. It runs `PORTAL.EXE` from disk 1 as DOS would, gives it a drive and a
-BIOS that answer its own INT 13h calls, and lets the player swap disks with Ctrl+F1 to Ctrl+F3
-when the game asks for one.
+BIOS that answer its own INT 13h calls, and answers the game's prompts for another disk from
+outside the program, as below.
 
 ## What it asks of the PC
 
@@ -164,6 +164,35 @@ There's no choice named HELP: the button is Homer's, Worldnet's guide, and choos
 up Worldnet's on-line help. So it's reached with Down to the bottom row, then Right twice.
 
 ![Worldnet's help, from the button marked HELP](images/portal-help.png)
+
+## Asking for a disk
+
+Disk 1 holds the program, the login and Central Processing. The story's later levels are on the
+other two. The game keeps the level at 213h of its state: 1 is on disk 1, 2 and 3 on disk 2, and
+4 and 5 on disk 3. When the eight entries it keeps for a level are all marked done (FEh), the
+level goes up, and a flag tells the next dataspace you go into to check the disk. It reads a
+sector that tells the disks apart, on cylinder 34 for levels 2 and 3 and cylinder 36 for 4 and
+5, and if it isn't the level's disk, it asks:
+
+![The prompt for disk 2](images/portal-disk-prompt.png)
+
+It waits for a key, reads the sector again, and asks again until the right disk is in. That's
+the only check: put the wrong disk in during a level and the game reads it as if it were the
+right one, and draws garbage.
+
+A second prompt asks for disk 1, whatever the level, before restoring a saved position, which
+is kept on disk 1. After that comes the check for the level's disk.
+
+Both prompts wait in the keyboard routine, not the one that reads the stick. So with a joystick
+chosen, the prompts still need a key from the keyboard.
+
+Excavate answers both for you, and the game's program runs unchanged. The player knows where
+the two prompts wait for a key. When the game waits there, Excavate reads which disk the prompt
+names from the game's memory (the digit it shows), puts that disk in the drive and presses
+Space. The prompt comes up and goes away again, and the status line says which disk went in.
+Ctrl+F1 to Ctrl+F3 still put a disk in by hand. This is what Mok's loader does from inside the
+game, with the prompt replaced by a call to the loader; Excavate does it from outside, as
+someone sitting at the machine would.
 
 ## The composite picture
 
