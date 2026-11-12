@@ -119,6 +119,64 @@ So the passphrase is never typed. The prompt "- PLEASE ENTER YOUR PASSPHRASE BEL
 `PGMAIN.EXE`, but nothing in the program that I could find refers to it, like setup's codephrase prompt: what
 the release shows of a logon it took out.
 
+## How the case runs
+
+Every entry in `MSG.TXT` begins with a line like `NRAYDEATH- N 00010`: its name, a letter for
+where it stands, and a wait in seconds. The lines after it, up to the `~`, name the entries it
+sets off. `STATUS.TBL` keeps the same entries, 27 bytes each: the name, the letter, the wait in
+timer ticks (18 a second, so 10 seconds is 180), where the text starts in `MSG.TXT`, and when
+its wait began.
+
+The letter is a state, and the game moves each entry through them:
+
+| Letter | What it means |
+|---|---|
+| N | Not yet |
+| D | Open: for a report, something you can investigate |
+| U | Locked until Umbra clearance |
+| I | Falcon's, sent at once when set off |
+| C | Falcon's, timed when set off |
+| T | Timing |
+| R | Arrived |
+| Q | Announced |
+| A | Read |
+| Z | Done |
+
+Reading an entry sets off the ones it names, and what that does depends on their kind. News and
+COPNET's messages start their wait. Falcon's are sent at once, or timed if marked `C`. Reports
+in `N` become open (`D`), and start their wait only when you investigate them, typing their
+name under COPNET COMMUNICATIONS, TRANSMIT. Dossiers and photographs go straight into the
+database. Then the timer's interrupt looks at one entry a tick, and when an entry's wait is
+over it marks it arrived and puts up its notice: "NEWS FLASH", "COPNET MESSAGE IN", or
+"INVESTIGATION RESULTS AVAILABLE". Falcon's are flagged to be shown
+on their own.
+
+The case ships with one entry arrived, the welcome letter, and it sets off the rest: 19 reports
+opened, Falcon's introduction, and the news of a death that starts the case proper.
+
+### Falcon's chain
+
+The passphrase is cracked by a chain of 21 of Falcon's messages, `FX00` to `FX19` for the
+characters and `FX004` for the whole, each setting off the next. It's started by `FADDRCHNG`,
+"MOST CLEVER OF YOU TO CHANGE YOUR ADDRESS", which is set off by evidence file X867: the case
+against you, listing you first among the suspects to be "PRESUMED GUILTY". The waits add up to
+38,500 seconds, about 10 hours 40 minutes, and each starts only when the message before it is
+read. Along the way the chain also sets off news of a second murder and more; at its end it
+sets off `CTERMINATE`, and the game is over.
+
+### BETAFAST
+
+The makers left themselves a way to hurry it all. `BETAFAST` is a report open from the start:
+transmit it as an objective, and four seconds later its results say "FOR BETA-TESTING, YOU
+HAVE REQUESTED ALL MESSAGES TO OCCUR WITHIN 5 SECONDS. THIS WILL BEGIN UPON LEAVING THIS
+MESSAGE. TO RETURN TO NORMAL TRANSMIT "BETANORM"." Reading it sets off `SB00`, a switch, and
+from then on every wait that starts is 5 ticks, about a quarter of a second. In Excavate,
+investigating General Wharton after it took 5 ticks, not the 90 it ships with. The switch is
+kept in memory, not in the files, so it should last only until you log off.
+
+`tools/cosmi/guilty_case.py` prints all of this from the game's files: the case entry by entry
+under what sets each off, any one entry, or Falcon's chain with its times.
+
 ## Reading it without playing
 
 Excavate can show every message, dossier and report the case holds, and the cassette's

@@ -26,3 +26,24 @@ python tools/portal/walkthrough.py <the game's folder>
 - **`portal_story.py`** is what both share: reading a file from a disk's root directory,
   turning the game's byte addresses into places in an image, and decoding a level's table,
   records, titles and text.
+
+## Presumed Guilty
+
+`cosmi/guilty_case.py` maps *Presumed Guilty*'s case from its files: `MSG.TXT` for every entry,
+what it sets off and how long it waits, and `STATUS.TBB` for where each stands as the case
+ships. How the game keeps them is in [docs/guilty.md](../docs/guilty.md#how-the-case-runs).
+
+```
+python tools/cosmi/guilty_case.py <the game's folder>
+python tools/cosmi/guilty_case.py <the game's folder> <name>
+python tools/cosmi/guilty_case.py <the game's folder> --falcon
+```
+
+- With only the folder, it prints the case from what has arrived as it ships, the welcome
+  letter, entry by entry, each under what sets it off, and then the entries nothing sets off:
+  what you investigate yourself, and what the game sets off in its code.
+- With a name, it prints that entry, what sets it off, what it sets off, and its text. A name
+  can be given as the game writes it (`OBETAFAST-`) or without its padding or kind's letter
+  (`betafast`).
+- With `--falcon`, it prints Falcon's chain, the passphrase a character at a time, with the
+  time each step waits and the time to the end.
