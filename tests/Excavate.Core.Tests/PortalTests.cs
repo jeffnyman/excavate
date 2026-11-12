@@ -6,7 +6,7 @@ namespace Excavate.Core.Tests;
 /// to <c>screenshots</c> beside the tests. Without the disks (in EXCAVATE_GAMES, or
 /// _excavating/portal/portal above the tests), these pass without checking.
 /// </summary>
-public sealed class PortalTests : IDisposable
+public sealed partial class PortalTests : IDisposable
 {
     private readonly string _saves = Directory.CreateTempSubdirectory("excavate-saves").FullName;
     private readonly List<string> _log = [];

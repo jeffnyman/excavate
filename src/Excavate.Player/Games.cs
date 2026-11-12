@@ -110,7 +110,7 @@ internal static class Games
         // at 2F67h (with 3 made 4 once it's shown), and for disk 1, before restoring a saved
         // position; and its joystick, if you say you have one, is only ever four arrows and a
         // button, which the mouse can be
-        new("portal", "Portal", 1986, ["PORTAL.EXE"], @"A:\PORTAL.EXE", Pc, "new: it plays to Central Processing, and further is untried",
+        new("portal", "Portal", 1986, ["PORTAL.EXE"], @"A:\PORTAL.EXE", Pc, "plays through to its end",
             VideoAdapter.Cga,
             new DiskSet("PORTAL.EXE", [new ExtraSectors(0, 9, 0, 10, 16)],
                 [new DiskPrompt(0x10970, 0x11EFA, DigitAt: 0x2F67, Digits: "124"), new DiskPrompt(0x10970, 0x1236B, Disk: 0)]),

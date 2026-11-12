@@ -12,7 +12,7 @@ the time. Those notes are in [docs](docs/), a game at a time.
 
 | Game | Year | Short name | Where it stands |
 |---|---|---|---|
-| *Portal* | 1986 | `portal` | Plays from its disk images to Central Processing; further is untried |
+| *Portal* | 1986 | `portal` | Plays through to its end, from its disk images; there's a [walkthrough](docs/portal-walkthrough.md) |
 | *Metropolis* | 1987 | `metropolis` | Recognized; boots from its own disks, which Excavate doesn't do yet |
 | *Guardians of Infinity: To Save Kennedy* | 1988 | `kennedy` | Not yet tried |
 | *The President Is Missing* | 1988 | `president` | Not yet tried |
@@ -84,7 +84,8 @@ dotnet test -c Release
 The tests that need a game's files look for them in `EXCAVATE_GAMES`, or in an `_excavating`
 folder above the repository, and pass without checking when they aren't there. The processor
 tests use the [SingleStepTests](https://github.com/SingleStepTests) sets, found the same way
-through `EXCAVATE_TESTDATA` or a `_testdata` folder.
+through `EXCAVATE_TESTDATA` or a `_testdata` folder. With `EXCAVATE_PLAYTHROUGH` set, a test
+also plays *Portal*'s story from the login to its last message, which takes a couple of minutes.
 
 ## License
 

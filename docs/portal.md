@@ -194,6 +194,119 @@ Ctrl+F1 to Ctrl+F3 still put a disk in by hand. This is what Mok's loader does f
 game, with the prompt replaced by a call to the loader; Excavate does it from outside, as
 someone sitting at the machine would.
 
+## The story
+
+*Portal* has no puzzles and no way to lose. Its story is told in pieces, files and records in
+Worldnet's dataspaces and messages from Homer, and reading some pieces unlocks others. A
+[walkthrough](portal-walkthrough.md) of one path through them is generated from what follows.
+
+### What the game keeps
+
+The story has five levels. The game's state, in the data segment at 584h, holds the level at
+213h, and from 72Ch a flag byte for each of the level's items, up to 8Ch of them:
+
+- The low nibble is the item's dataspace, numbered as the map's places are, left to right and
+  top to bottom: 0 Med10, 1 PsiLink, 2 SciTech, 3 History, 4 Military, 5 LifeSupport,
+  6 Geographical, 7 Wasatch, 8 Psychological, 9 Central Processing, 10 Edmod, 11 Homer. 12 is
+  Interface, Homer's side of the conversation, which has no place on the map: its items come
+  through Homer.
+- Bit 20h is set while the item is locked, and 10h while it's unread.
+
+Level 1's flags are the program's own starting values. Each later level's are read from its
+disk as the level starts.
+
+### Where the pieces are
+
+The game reads its data by byte address, through its own routine over INT 13h. An address is a
+place in a run of 512-byte sectors, eight to a track as the game's data uses them, side 0 then
+side 1 of each cylinder. That's how the disks tell themselves apart: the byte at 44FFFh holds
+`1` on disk 1 and `2` on disk 2, and the one at 4FFFFh holds `3` on disk 3.
+
+Each level has a table of 1C20h bytes: at 45000h of disk 1 for level 1, at 46C20h and 45000h of
+disk 2 for levels 2 and 3, and at 4BC20h and 4A000h of disk 3 for 4 and 5. It has 5 bytes for each item, a 3-byte address and a 2-byte
+length, and from 5DCh on, the offsets of the titles its lists show. At an item's address are:
+
+| Bytes | What |
+|---|---|
+| 8 | Its prerequisites: the items that must be read before it unlocks (FFh for none) |
+| 8 | Its successors: the items it leads to |
+| 4 | Lengths |
+| The rest | Its text, in ASCII with the high bit set on the last character of each word or line and FFh at the end, then any picture |
+
+### The rule
+
+An item unlocks when each of its prerequisites has been read. Numbers above a limit for the
+level (38h, 4Ch, 66h, 76h and 6Eh) aren't items there, and count as read, except, in level 5,
+85h and up. When an item is read,
+the game puts its successors on a list of up to 16 that it's watching, reads their records,
+and unlocks each one that's ready.
+
+A level ends with an item that has FEh among its successors. Once that's read, the level number
+goes up, and the next dataspace you go into asks for the level's disk and loads its flags.
+Level 5 has no such item: it ends with Homer's goodbye, unlocked by History's last two pages,
+the decades 2090 and 2100. It comes up straight after the last of them.
+
+![The end of the story](images/portal-ending.png)
+
+Everything else is reading for its own sake. Each level also has code of its own that unlocks
+extras: in level 1, Homer's fourth message opens SciTech's eight articles on old interfaces. Of
+level 1's items, 47 are on the way to its end.
+
+### Read means to the end
+
+In Central Processing and Homer's dataspace, an item counts as read only once it's been paged to
+its end. The game notes reaching the last page, when the title changes to NO MORE, at 218h, and
+checks it when it comes to mark the item read. (The walkthrough pages everything to the end, which works
+everywhere.)
+
+### Homer
+
+At the start of levels 1, 2 and 4, Homer's first message comes from a menu of kinds of story:
+history, military conflict, comedy, tragedy, romance, a gender, and a manner (hexameter, high
+diction or conversational). The one that brings his message is CURRENT, near the bottom. The
+others weren't tried; among the program's texts is "ALL OPTIONS INACTIVE EXCEPT CURRENT". Levels
+3 and 5 start with a message the game shows on its own.
+
+![Homer's menu, scrolled to CURRENT](images/portal-homer-current.png)
+
+The HOMER MESSAGES button, when Homer has nothing new, shows one of his idle lines: "Do you trust
+me?", "I am frightened." It's not a question that needs answering.
+
+### The DNA code
+
+PsiLink and Military warn that they're proscribed and demand a DNA code. The texts are full of
+DNA numbers to try. None is needed: the prompt waits for any key, and then the game looks at
+what's unlocked there. With nothing, it says "ENTRY DENIED!" and sends you back. With something,
+it says "BREAK: DNA ENCODE OVERRIDE? REF. HOMER DATABASE." and lets you in.
+
+![PsiLink's demand](images/portal-dna-prompt.png)
+
+### Finding the path
+
+How this was worked out, a step at a time:
+
+1. **The level number.** The disk prompt's code showed the level at 213h. The one place that
+   adds to it is at the end of the routine that marks an item read, which checks the record
+   just shown for FEh among its successors.
+2. **The records.** That routine loads records by item number, through the 5-byte table. The
+   table's loader gave its disk address, and the disk-label bytes confirmed how addresses map
+   to sectors. With that, every level's table and records could be read straight from the
+   images.
+3. **The flags.** The low nibbles matched the program's list of dataspace names, in the same
+   order as the map. Bits 20h and 10h were confirmed by watching them change in play.
+4. **The path.** Starting from each level's end and following prerequisites back gives the
+   items that must be read. Ordering them so that each comes after its prerequisites gives the
+   [walkthrough](portal-walkthrough.md).
+5. **Playing it.** A reader in Excavate's tests plays the game through its keys. It reads the
+   flags from memory to know what's unlocked, and the number of the name across the top of the
+   screen, at 13Ch in the game's data, to know what's highlighted. That's how the rules for
+   reading were found: paging to the end, Homer's CURRENT, the DNA code, and the pieces that
+   come up by themselves. It plays from the login to Homer's goodbye in about two minutes:
+
+   ```
+   EXCAVATE_PLAYTHROUGH=1 dotnet test -c Release --filter Its_story_plays_through_to_homers_goodbye
+   ```
+
 ## The composite picture
 
 Much of the artwork is made of one-pixel vertical stripes: cyan and magenta alternating across
