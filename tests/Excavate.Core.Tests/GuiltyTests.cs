@@ -104,6 +104,24 @@ public sealed class GuiltyTests : IDisposable
         Assert.True(File.Exists(Path.Combine(_saves, "SA")));
     }
 
+    [Theory]
+    [InlineData("CHAMBERLAIN", "UMBRA CLEARANCE ESTABLISHED")]
+    [InlineData("CHAMBERLAINS", "UMBRA CLEARANCE ESTABLISHED")]
+    [InlineData("DO IT TO ME", "3RD UNAUTHORIZED ATTEMPT CAUSES TERMINAL DEACTIVATION")]
+    public void The_Umbra_files_open_to_an_answer_that_starts_with_their_code(string code, string shown)
+    {
+        if (Start("PGMAIN.EXE") is not { } machine)
+        {
+            return;
+        }
+
+        // the EGA, past the credits; the data base, and its Umbra files; then a code, the one
+        // Falcon offers being a wrong one
+        Type(machine, $"2   v!vvv!{code}|");
+
+        Assert.Contains(shown, Screen(machine));
+    }
+
     [Fact]
     public void The_game_goes_from_its_title_on_the_EGA_to_its_menu_and_logs_off()
     {

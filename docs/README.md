@@ -12,4 +12,5 @@ so that its own program runs as it was shipped.
   it, photographs on the EGA or the CGA, and a story clock borrowed from the PC's.
 - [Presumed Guilty](guilty.md): Cosmi, 1989, as Celery Software released it in 1993. The
   President's sequel, its setup giving away the passphrase it once asked for, its logon gone,
-  and a byte that goes to a port nothing answers.
+  a villain cracking that passphrase as the game's clock, an Umbra code and a false one, and a
+  byte that goes to a port nothing answers.
