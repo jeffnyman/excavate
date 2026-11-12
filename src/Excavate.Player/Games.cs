@@ -137,7 +137,7 @@ internal static class Games
                 [new DiskPrompt(0x10970, 0x11EFA, DigitAt: 0x2F67, Digits: "124"), new DiskPrompt(0x10970, 0x1236B, Disk: 0)]),
             MouseJoystick: true),
         new("metropolis", "Metropolis", 1987, ["METRO.SCR"], null, Tandy, "boots from its own disks, which Excavate doesn't do yet"),
-        new("kennedy", "Guardians of Infinity: To Save Kennedy", 1988, ["GOI.EXE"], "KENNEDY.BAT", Pc, "starts, and the timeship arrives; not yet played"),
+        new("kennedy", "Guardians of Infinity: To Save Kennedy", 1988, ["GOI.EXE"], "KENNEDY.BAT", Pc, "starts, and the timeship arrives; its slide show (KSHOW.EXE) and ending run; not yet played"),
         // The President Is Missing: its setup, SU.EXE, comes cracked to take any name for the
         // supervisor's, the jump that turns a wrong one away made two NOPs; the jump goes back,
         // and setup takes only the name it shipped expecting, William H. Sullens; its data
