@@ -47,3 +47,21 @@ python tools/cosmi/guilty_case.py <the game's folder> --falcon
   (`betafast`).
 - With `--falcon`, it prints Falcon's chain, the passphrase a character at a time, with the
   time each step waits and the time to the end.
+
+## Guardians of Infinity: To Save Kennedy
+
+`paragon/kennedy_dialog.py` reads the conversation aboard Air Force One that ends the game from
+`K.DAT`: each section's opening line, its patterns, and its answers in order, with what each
+is for and what it says and does. How `RUND.EXE` runs it is in
+[docs/kennedy.md](../docs/kennedy.md#the-conversation).
+
+```
+python tools/paragon/kennedy_dialog.py <the game's folder>
+python tools/paragon/kennedy_dialog.py <the game's folder> <section>
+python tools/paragon/kennedy_dialog.py <the game's folder> --points
+```
+
+- With only the folder, it prints every section; with a section's name (`k0` to `k3`, or
+  `kt`), that one.
+- With `--points`, it lists every answer that gives points, with what to say for it. Six
+  convince Kennedy.

@@ -12,8 +12,8 @@ so that its own program runs as it was shipped.
   it, photographs on the EGA or the CGA, and a story clock borrowed from the PC's.
 - [Guardians of Infinity: To Save Kennedy](kennedy.md): Paragon Software, 1988. A game built on
   the interface library Novell later bought, asking a 1988 PC for a network and a multitasker
-  it didn't have; its slide show of IFF pictures, and an ending that runs only on a token the
-  game leaves in the BIOS's data area.
+  it didn't have; its slide show of IFF pictures; and an ending that runs only on a token the
+  game leaves in the BIOS's data area, a conversation with Kennedy that three lines win.
 - [Presumed Guilty](guilty.md): Cosmi, 1989, as Celery Software released it in 1993. The
   President's sequel, its setup giving away the passphrase it once asked for, its logon gone,
   a villain cracking that passphrase as the game's clock, an Umbra code and a false one, a

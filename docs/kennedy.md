@@ -111,30 +111,139 @@ President listens to your predicament with your one agent" (or "agents"), and he
 ![Air Force One](images/kennedy-air-force-one.png)
 
 The ending opens on Dave Powers, who has heard the same story from three people and arranged
-a meeting on Air Force One, en route from Fort Worth to Dallas. Then it's a conversation: 15
-minutes of flight, Kennedy in the top window, Powers in the middle, and you typing in the
-bottom. `RUND.EXE` matches what you type against keywords, misspellings included ("veitnam",
-"hienekens", "kruschev"), and reads its dialog from `K.DAT`. Its credits: "Kennedy Dialog Programming
-by Thomas J. Holmes" and "Kennedy Dialog Written by John Antinori and Bill Snyder".
+a meeting on Air Force One, en route from Fort Worth to Dallas. Then it's a conversation, with
+Kennedy in the top window, Powers in the middle, and you typing in the bottom. Its credits:
+"Kennedy Dialog Programming by Thomas J. Holmes" and "Kennedy Dialog Written by John Antinori
+and Bill Snyder".
 
-Its strings hold the endings:
+## The conversation
+
+The flight is 15 minutes, counted down on the screen as you talk. In them, you have to
+convince Kennedy that you're from the future, by telling him things only he and the people
+closest to him could know. Each one
+he can't explain is worth one to three points, and six convince him. `RUND.EXE` runs the
+conversation, and `K.DAT` holds it. `tools/paragon/kennedy_dialog.py` prints all of it, and
+`--points` lists every answer that gives points (25 in all), with what to say for it.
+
+### What you type
+
+`RUND.EXE` cuts what you type into words, everything but letters, digits, `'` and `-` being a
+space between them. It replaces some words with others, from a table of its own: "kennedy",
+"president", "john", "you" and "your" become "jfk"; "assassin", "gunman" and "gunmen" become
+"oswald"; misspellings it expected are corrected ("veitnam", "hienekens", "kruschev"); and
+"shit", "dirtbag" and their like become one word, which Kennedy has an answer for. The
+patterns are written in those words: "jfk_are_my_kind_of_shah" is "you are my kind of shah".
+
+A pattern is words in an order. Words with a space between them have to come in that order,
+with anything between them; words joined by `_` have to come one right after another.
+"jfk life danger" matches "Your life is in danger in Dallas"; "westward_look_the_land_is_bright"
+needs the line as it was said.
+
+Not every pattern can match. The table turns "gunman" and "gunmen" into "oswald" before the
+patterns see them, so "gunman grassy_knoll" and "gunmen grassy_knoll" never match: in the
+running game, "a gunman on the grassy knoll" gets the answer for nothing matched. "attempt to kill jkf" has a typo, and
+matches only if you make the same one.
+
+### How an answer is chosen
+
+`K.DAT` is five sections, each with its opening line, its patterns, and its answers in order.
+Each answer is for sets of patterns, any one set of them; a set is one pattern or several, all
+of which have to have matched. It goes through them twice:
+
+1. **For what you just said.** The first answer, in order, whose set matched this time and
+   whose conditions hold is the one given.
+2. **For what you've said before.** If none was, it goes through again with everything you've
+   said so far. Some answers are only for this pass: they bring back a subject ("You mentioned
+   Krushchev before. Do you have anything else to say involving him?"). The answers for when
+   nothing matches come in here too.
+
+So a set of several patterns can be said over several lines: "1960", "convention" and the
+six things they had for breakfast at it are one answer, worth two points.
+
+### What an answer does
+
+An answer is a string of commands, a letter each, some taking a string between delimiters:
+
+| Command | What it does |
+|---|---|
+| `k/text/`, `d/text/` | Kennedy or Powers says it |
+| `+n`, `-n` | Gives or takes away points; at six, Kennedy is convinced |
+| `?/n/` | Goes on only if you've never said pattern n |
+| `u/n/` | Forgets you said pattern n; `c` forgets everything |
+| `f/n/` | Sets flag n; `=/n/` goes on only if it's set, `#/n/` only if it isn't |
+| `g`, `n` | Goes on only in the second pass, or only in the first |
+| `^` | Is said once: the answer is taken off the list |
+| `>` | Goes to the back of the list, so the answers for nothing matched take turns |
+| `r/name/` | Goes to another section |
+| `e` and a letter | Ends it: `0` or `t` Kennedy goes on to Dallas; `1` he turns back, with you |
+| `!` | Never goes on |
+
+A condition that doesn't hold stops the answer before anything is said, and the next one is
+tried.
+
+### The file
+
+`K.DAT` starts with 1Ah, a word, and the number of sections, then each section's name (13
+bytes), its length (a double word), a byte, and its place in the file (a double word). A
+section starts with a word, then the number of its patterns and each one's place; the number
+of its answers and, for each, the place of its sets of patterns in the section's table and
+the place of its script; and the table's place. All the places count from the end of that
+header, where the opening line starts. The text, the opening line, the patterns and the
+scripts, is strings ended by a zero, every byte XORed with 1Ah. The table isn't: it's the
+number of its words, then for each answer the patterns of its sets, FFFFh after each set and
+FFFEh at the end, with FFFDh for nothing matched.
+
+### The sections
+
+- **`k0`, the opening.** "What do you know about this danger?" Talk of Oswald or the Book
+  Depository takes you to `k1`; saying you're from the future takes you to `k3`.
+- **`k1`, the plot.** "Were you part of the conspiracy?" Say yes, and Kennedy turns back for
+  Washington, but takes you with him. Say no, and it goes on to `k2`; contradict yourself twice,
+  and he gives up on you. Saying you're from the future goes on to `k3`.
+- **`k2`, the source.** Then how do you know about it? Admit you were part of it after all, and
+  it ends as a yes in `k1`; say you're from the future, and it goes on to `k3`; say nothing he
+  can use three times, and he goes on to Dallas.
+- **`k3`, the future.** "Convince me you are from the future." The heart of it: 101 answers to
+  125 patterns, about his family, his staff, his habits, and the crises of his presidency.
+  Most of them he can explain away: it was in the papers, or anyone in his office could have
+  seen it. Fifteen give points. Three points each: a line, "westward look, the land is
+  bright", that only Powers, O'Donnell and he could know he said; Khrushchev's letter about the
+  "knot of war"; and the Gold Star Mothers, with where Powers and Kennedy first met. Two each:
+  a frappe in Boston on a secret ice cream run, the bomb shelter passes of the Cuban missile
+  crisis, his breakfast at the 1960 convention, and "I'll get you, you so help me God". The
+  rest give one.
+- **`kt`, the landing.** When the time runs out, Air Force One lands in Dallas. "Why should we
+  trust you?" Powers suggests changing the route and searching around the Book Depository, but
+  whatever you say next, Kennedy goes on: "Future, Dave? Really!!"
+
+So "I am from the future", "Westward look, the land is bright" and "Krushchev's letter: the
+knot of war" win it in three lines.
+
+![Kennedy, astounded](images/kennedy-westward.png)
+
+### How it ends
+
+With six points, Powers or Kennedy agrees that you've been convincing, and the President calls
+off Dallas:
 
 - **The win.** On landing at Love Field, Kennedy's appointments secretary announces the
-  President has the flu and is cancelling the rest of his Texas trip. Kennedy has you flown
+  President has the flu and is canceling the rest of his Texas trip. Kennedy has you flown
   back to Fort Worth, your team gathers in the Time Sphere, and then a message comes in on
   every trans-continuum frequency: the rogue time traveler, who is the first Adam Cooper,
   from the 2087 where Kennedy lived. He promises that "our paths will cross again", and the
   game ends there.
-- **Kennedy saved, Cooper lost.** The motorcade through Dallas is cancelled, and Lee Harvey
-  Oswald is arrested for conspiring to kill the President. But Adam Cooper hasn't returned to
-  the time sphere, and his staying in 1963 brings the continuum down: "The Highfather has
-  triumphed."
-- **The assassination.** At 12:30 on Friday, November 22, it goes ahead, and "the past,
-  present, and future are destroyed."
 
-The win leaves the time traveler free, with his own time sphere.
+The other endings:
+
+- **Kennedy saved, Cooper lost** (`e1`). Kennedy believes there's a plot, but not that you're
+  from the future: he takes you back to Washington as a conspirator, or as a spy. The motorcade
+  through Dallas is canceled, and Lee Harvey Oswald is arrested for conspiring to kill the
+  President. But Adam Cooper never returns to the time sphere, and his staying in 1963 brings
+  the continuum down: "The Highfather has triumphed."
+- **The assassination** (`e0` and `et`). Kennedy isn't convinced, or the time runs out. At
+  12:30 on Friday, November 22, it goes ahead, and "the past, present, and future are
+  destroyed."
 
 ## Still to look at
 
-Playing it; the ending's dialog in `K.DAT`; the game's data files; and the "slow adapter"
-setup.
+Playing the game itself; its data files; and the "slow adapter" setup.

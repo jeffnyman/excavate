@@ -103,13 +103,66 @@ public sealed class KennedyTests : IDisposable
     [Fact]
     public void After_the_game_the_ending_puts_you_on_Air_Force_One()
     {
-        if (TestData.Game("guardken/guardken") is not { } folder)
+        if (OnAirForceOne() is not { } machine)
         {
             return;
         }
 
-        // what the game leaves when it ends with you on the plane: the token, the sound off,
-        // and none of your agents left to find
+        // the token is gone, so it's good once
+        Assert.All(Enumerable.Range(0, 16), i => Assert.Equal(0, machine.Read(0x4F0 + (uint)i)));
+
+        string screen = Screen(machine);
+        Assert.Contains("Time Remaining Until Flight Reaches Dallas: 15 Minutes", screen);
+        Assert.Contains("Well Mr. Cooper, you've convinced", screen);
+        Screenshot.WritePng(machine, Path.Combine(Shots, "kennedy-air-force-one.png"));
+    }
+
+    [Fact]
+    public void The_gunman_on_the_grassy_knoll_becomes_Oswald_before_Kennedy_hears_him()
+    {
+        if (OnAirForceOne() is not { } machine)
+        {
+            return;
+        }
+
+        // "gunman" is one of the words for "oswald", and is turned into it before the patterns
+        // are matched, so the patterns with "gunman" and "gunmen" in them never match: Powers
+        // answers as when nothing does
+        Say(machine, "a gunman on the grassy knoll");
+        Assert.Contains("You have indicated that John's life is in danger.", Screen(machine));
+    }
+
+    [Fact]
+    public void Three_lines_convince_Kennedy()
+    {
+        if (OnAirForceOne() is not { } machine)
+        {
+            return;
+        }
+
+        Say(machine, "i am from the future");
+        Assert.Contains("Convince me you are from the future.", Screen(machine));
+
+        // three points: something he said that only Powers, O'Donnell and he heard
+        Say(machine, "westward look the land is bright");
+        Assert.Contains("Only Dave, Ken, and I could", Screen(machine));
+        Screenshot.WritePng(machine, Path.Combine(Shots, "kennedy-westward.png"));
+
+        // and three more, six: he turns back for Washington, and the ending goes on to the
+        // message from the first Adam Cooper
+        Say(machine, "krushchev letter knot of war");
+        Assert.Contains("You are stunned and you should be.", Screen(machine));
+    }
+
+    // the ending, given the token the game leaves when you've won your way onto the plane (the
+    // sound off, and none of your agents left to find), at Kennedy's first question
+    private Machine? OnAirForceOne()
+    {
+        if (TestData.Game("guardken/guardken") is not { } folder)
+        {
+            return null;
+        }
+
         var machine = new Machine(folder, _saves) { Log = _log.Add, InstructionsPerSecond = 300_000 };
         byte[] left = [.. Token.Select(c => (byte)c), 0, 0];
         for (int i = 0; i < left.Length; i++)
@@ -120,17 +173,57 @@ public sealed class KennedyTests : IDisposable
         machine.Load("RUND.EXE", "Z k0");
         machine.Run(machine.InstructionsPerSecond * 20);
         Assert.Contains("Dave Powers thought it extremely strange", Screen(machine));
-
-        // and it clears the area, so it's good once
-        Assert.All(Enumerable.Range(0, 16), i => Assert.Equal(0, machine.Read(0x4F0 + (uint)i)));
-
         Press(machine, 0x1C);
         machine.Run(machine.InstructionsPerSecond * 10);
-        string screen = Screen(machine);
-        Assert.Contains("Time Remaining Until Flight Reaches Dallas: 15 Minutes", screen);
-        Assert.Contains("Well Mr. Cooper, you've convinced", screen);
-        Screenshot.WritePng(machine, Path.Combine(Shots, "kennedy-air-force-one.png"));
+        return machine;
     }
+
+    private static readonly byte[] Letters =
+    [
+        0x1E, 0x30, 0x2E, 0x20, 0x12, 0x21, 0x22, 0x23, 0x17, 0x24, 0x25, 0x26, 0x32,
+        0x31, 0x18, 0x19, 0x10, 0x13, 0x1F, 0x14, 0x16, 0x2F, 0x11, 0x2D, 0x15, 0x2C,
+    ];
+
+    // types what you'd type in the dialog, and Enter at the end ('|' alone is Enter)
+    private static void Type(Machine machine, string text)
+    {
+        foreach (char c in text + "|")
+        {
+            byte code = c switch
+            {
+                '|' => 0x1C,
+                ' ' => 0x39,
+                '\'' => 0x28,
+                >= 'a' and <= 'z' => Letters[c - 'a'],
+                >= '1' and <= '9' => (byte)(c - '1' + 2),
+                '0' => 0x0B,
+                _ => throw new ArgumentException($"no key for '{c}'"),
+            };
+            Press(machine, code);
+            machine.Run(machine.InstructionsPerSecond / 10);
+        }
+    }
+
+    // says a line to Kennedy, then reads what's said back: a key after each speaker's line, until
+    // the prompt is back
+    private static void Say(Machine machine, string line)
+    {
+        Type(machine, line);
+        for (int keys = 0; keys < 10; keys++)
+        {
+            machine.Run(machine.InstructionsPerSecond * 4);
+            if (Prompting(machine))
+            {
+                return;
+            }
+
+            Press(machine, 0x39);
+        }
+    }
+
+    // the prompt, alone, on the last line of your window
+    private static bool Prompting(Machine machine) =>
+        Screen(machine).Split('\n')[22].StartsWith(" \u00B3>   ", StringComparison.Ordinal);
 
     private static void Press(Machine machine, byte scanCode)
     {
