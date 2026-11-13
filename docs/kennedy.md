@@ -500,13 +500,26 @@ Force One to talk with the President. Thank God."
   goes to them: "Do you want me to see Evelyn Lincoln instead of William Stein?" The test sends
   each one home to the ship as they finish.
 
-### Not yet understood
+### A bug in the game: "Hi.  It's me."
 
 In one run that went wrong, with Blue confused and sent home off the plan, Excavate stopped on
-an exception: the game had reached the DPMI host's code in the BIOS's segment, which a real-mode
-program never calls. Whether the game crashed on its own, or Excavate has a fault there, isn't
-known yet.
+an exception. The game had jumped into the BIOS's segment, into the code of Excavate's DPMI
+host, which a real-mode program never calls. It wasn't Excavate's fault.
+
+Watching the writes to the timer's interrupt vector (0000:0020) caught the game copying "Hi.
+It's me." over it. When an agent checks in with nothing to report, the game builds that greeting
+in a block from `malloc`, 3 bytes more than the string: a word for the agent, then the text. But
+`malloc` returns a far pointer in DX:AX, and the code that follows the call is `cdq`, which
+replaces DX, the pointer's segment, with AX's sign. It's what Turbo C makes of a call to a
+function it has no declaration for: it takes the result to be an `int`, and widens it to a
+pointer. Of the game's 28 calls to `malloc`, this is the only one without the declaration.
+
+So the greeting goes to 0000 and the block's offset, which in the far heap is small. In that
+run it was 0000:0012. The agent's number and the string land on interrupt vectors 4 to 8, the
+timer's among them, and at the next tick the PC runs whatever is at the address left in it. On
+a PC of the time it would crash as it did here. The offset would have to be 8000h or more for
+the segment to come out FFFFh instead, and the far heap's offsets are much smaller than that.
 
 ## Still to look at
 
-What went wrong in that run; `GOIDAT.SAV`; and the "slow adapter" setup.
+When an agent checks in with nothing to report; `GOIDAT.SAV`; and the "slow adapter" setup.
