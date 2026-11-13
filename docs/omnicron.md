@@ -79,9 +79,22 @@ takes the EGA anyway.
   combination of the 16 colors. Excavate's BIOS only selected pages in the text modes, so
   the EGA showed page 0 and its patterns. It now selects them in the EGA's graphics modes
   too.
-- **The CGA** is mode 04h, with its own title and control panel.
+- **The CGA** is mode 04h, with its own title and control panel, in the second palette:
+  cyan, magenta and light gray.
 
-The Tandy 1000 and the Hercules aren't tried: Excavate's VGA has neither.
+On the EGA, Ace walks from the bedroom through the galley and the living room to the
+transporter room, and on the CGA to the living room, drawn as on the MCGA. The Tandy 1000 and
+the Hercules aren't tried: Excavate's VGA has neither.
+
+## The sound
+
+The music is the title's alone: `PLAY.EXE` plays the theme on the AdLib, and it plays in
+Excavate. Everything in the game itself is on the PC speaker, through the
+timer's counter 2. `SOUNDS.DNL` holds the effects as notes, and a table in `SCODE.EXE` turns
+each note into the counter's divisor, from 18,243, a C two octaves below middle C at 65.4 Hz,
+up by semitones. The effects keep to the low end of it: Ace's laser is a buzz of notes between
+about 65 and 300 Hz, and his footsteps are clicks, eight or so a second. Recorded from
+Excavate, both come out at those pitches. The manual has S turn the sound off and on.
 
 ![The bedroom, on the EGA](images/omnicron-bedroom-ega.png)
 
@@ -260,7 +273,13 @@ course changes the last, and arriving changes the other: at the Blackstar both a
 others are Cron, 480117; the Sarbai base, 563381, from a memo; and the asteroid the real estate
 agency lists as sold, 356972. 927325 is still to place.
 
-## Still to look at
+## Where this stops
 
-The rest of the game, from the Blackstar back to Cron: the Mind Zi Tavern, where the agent's
-tip came from, and where the case leads from there.
+The play stops at the Blackstar. By then it had gone through the loader, every display mode
+Excavate has, both kinds of sound and a dozen rooms on two ships and a planet, without
+needing anything more of Excavate, and what's past it is the same engine in more rooms. Playing
+on is slow work: Ace has to be placed to the pixel, and the menus are slow to answer. What the
+rest of the game holds is in its files, which the tool reads: every room, everything in each,
+and all the text. The way to the end would come from the objects' scripts, the small bytecode
+language each thing's examine and use run in, which is still to be decoded. The next lead in
+play is back on Cron, at the Mind Zi Tavern, where the agent's tip came from.
