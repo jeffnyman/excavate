@@ -155,7 +155,9 @@ public sealed class KennedyTests : IDisposable
     }
 
     // the ending, given the token the game leaves when you've won your way onto the plane (the
-    // sound off, and none of your agents left to find), at Kennedy's first question
+    // sound off, and none of your agents left to find), at Kennedy's first question. The clock
+    // starts at midnight: RUND reads the time, and from some times of day the ending has moved
+    // on past Kennedy's answer by the time the test looks for it
     private Machine? OnAirForceOne()
     {
         if (TestData.Game("guardken/guardken") is not { } folder)
@@ -163,7 +165,7 @@ public sealed class KennedyTests : IDisposable
             return null;
         }
 
-        var machine = new Machine(folder, _saves) { Log = _log.Add, InstructionsPerSecond = 300_000 };
+        var machine = new Machine(folder, _saves) { Log = _log.Add, InstructionsPerSecond = 300_000, TickCount = 0 };
         byte[] left = [.. Token.Select(c => (byte)c), 0, 0];
         for (int i = 0; i < left.Length; i++)
         {
