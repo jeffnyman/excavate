@@ -111,6 +111,7 @@ How the game packs them is in [docs/omnicron.md](../docs/omnicron.md#the-games-f
 ```
 python tools/firststar/omnicron_files.py <the game's folder> rooms
 python tools/firststar/omnicron_files.py <the game's folder> things
+python tools/firststar/omnicron_files.py <the game's folder> scripts [<name>]
 python tools/firststar/omnicron_files.py <the game's folder> messages
 python tools/firststar/omnicron_files.py <the game's folder> pictures <folder>
 ```
@@ -119,6 +120,10 @@ python tools/firststar/omnicron_files.py <the game's folder> pictures <folder>
   doors lead.
 - **`things`** lists what's in each room as the game starts, each thing with what it holds, and
   what Ace carries.
+- **`scripts`** disassembles what the things do: for each thing, or each whose name matches,
+  the script that runs every frame, the one that runs when it's used, and a character's
+  behaviour, with the messages, menus and names they refer to written out. How the language
+  works is in [docs/omnicron.md](../docs/omnicron.md#the-scripts).
 - **`messages`** prints the game's text in the order it's kept, with "(Enter)" where a message
   goes on after an Enter.
 - **`pictures`** writes every picture to the folder as a PNG file, twice its size, in the

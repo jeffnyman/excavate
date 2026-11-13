@@ -2,6 +2,7 @@
 
     python tools/firststar/omnicron_files.py <the game's folder> rooms              every room, with where its doors go
     python tools/firststar/omnicron_files.py <the game's folder> things             what's in each room, and what holds what
+    python tools/firststar/omnicron_files.py <the game's folder> scripts [<name>]   what the things do, all or those named
     python tools/firststar/omnicron_files.py <the game's folder> messages           all of the game's text
     python tools/firststar/omnicron_files.py <the game's folder> pictures <folder>  every picture, as PNG files
 
@@ -371,6 +372,210 @@ def things(folder: str) -> None:
     chain(word(ACE + 4), 1, seen)
 
 
+# --- the scripts -------------------------------------------------------------------------
+
+# What the things do is written in a small bytecode, in SCODE.EXE's data. A thing's record has
+# two scripts: at 0Ah, one that runs every frame while the thing is in the room Ace is in (a
+# door's opening and closing), and at 0Ch, one that runs when Ace touches it and presses Return,
+# or uses it from his pocket, and that usually starts with its menu. The characters who move and
+# talk by themselves have a third, their behaviour, which runs a step at a time: they're listed
+# in a table of 63 entries of 1Bh bytes, each with the character at 1 and where its script is
+# at 7.
+RUNNING, RUNNING_COUNT, RUNNING_SIZE = 0x5F86, 0x3F, 0x1B
+
+# What's said face to face is in a second data segment, 1785h, which starts this far into the
+# first; there a message that goes on after an Enter is followed by FFh and the rest.
+SPEECH = (0x1785 - 0x773) * 16
+
+# Each opcode is even, and is followed by its operands: b a byte, w a word, t a message, T a
+# message said face to face, o a thing, v a variable (a word's address, which is often a
+# thing's), j a place in the script to go to, a an animation, m a menu and the places its choices
+# go to, s a switch: a word the game changes, and the places it picks between. A comparison
+# keeps its result for the jumps that follow, as the processor's flags.
+OPCODES = {
+    0x02: ("animation", "a"), 0x04: ("goto", "j"), 0x06: ("nop", ""), 0x08: ("nop", ""),
+    0x0A: ("native", "w"), 0x0C: ("compare", "vw"), 0x0E: ("test", "vw"),
+    0x10: ("if.less", "j"), 0x12: ("if.not.less", "j"), 0x14: ("if.equal", "j"),
+    0x16: ("door.through", "baa"), 0x18: ("say", "t"), 0x1A: ("menu", "m"), 0x1C: ("portrait", "wb"),
+    0x1E: ("door.open", "baa"), 0x20: ("thing.menu", "tj"), 0x22: ("animate", "ao"), 0x24: ("set", "vw"),
+    0x26: ("door", "baa"), 0x28: ("walk.door", "b"), 0x2A: ("remove", "o"), 0x2C: ("switch", "s"),
+    0x2E: ("set.byte", "vb"), 0x30: ("move.30", ""), 0x32: ("move.32", ""), 0x34: ("move.34", ""),
+    0x36: ("walk.to", "bo"), 0x38: ("talk", "wTw"), 0x3A: ("walk.to.place", "bw"), 0x3C: ("say.for", "tw"),
+    0x3E: ("flag.on", ""), 0x40: ("flag.off", ""), 0x42: ("refresh", ""),
+    0x44: ("if.here", "j"), 0x46: ("if.not.here", "j"), 0x48: ("count", "w"), 0x4A: ("loop", "j"),
+    0x4C: ("creature.menu", "tj"), 0x4E: ("if.carried", "oj"), 0x50: ("beep", ""), 0x52: ("drain", "b"),
+    0x54: ("buy", "woj"), 0x56: ("give.to", "o"), 0x58: ("compare.byte", "vb"), 0x5A: ("test.byte", "vb"),
+    0x5C: ("add", "vw"), 0x5E: ("add.byte", "vb"), 0x60: ("copy", "vv"), 0x62: ("copy.byte", "vv"),
+    0x64: ("if.touching", "o"), 0x66: ("move.to", "o"), 0x68: ("if.not.equal", "j"), 0x6A: ("container.menu", "t"),
+    0x6C: ("walk.door.0", ""), 0x6E: ("walk.door.1", ""), 0x70: ("walk.door.2", ""), 0x72: ("move", "oo"),
+}
+
+# routines in SCODE.EXE's code that a script calls by address, and the operands they read
+NATIVE_OPERANDS = {0x4749: "o", 0x4DEB: "ww", 0x528C: "w"}
+
+
+class Scripts:
+    """Reads and disassembles the scripts."""
+
+    def __init__(self, folder: str):
+        self.data = code(folder)[DATA:]
+        self.rooms = rooms(folder)
+        self.behaviour = {self.word(RUNNING + k * RUNNING_SIZE + 1): self.word(RUNNING + k * RUNNING_SIZE + 7)
+                          for k in range(RUNNING_COUNT)}
+
+    def word(self, at: int) -> int:
+        return struct.unpack_from("<H", self.data, at)[0]
+
+    def text(self, at: int) -> str | None:
+        match = re.match(rb"([ -~\r]{1,400})\0", self.data[at:]) if 0 < at < len(self.data) else None
+        return match.group(1).decode("ascii").replace("\r", " ") if match else None
+
+    def name(self, at: int) -> str | None:
+        """A room's or a thing's name, if that's what's at the address."""
+        if at in self.rooms:
+            return f'room "{self.rooms[at].name}"'
+        if at == ACE:
+            return "Ace"
+        if 0x200 <= at < len(self.data) - 0x1C and self.data[at + 0x19] == 0x64:
+            name = self.text(self.word(at + 2))
+            if name and len(name) < 40:
+                return f'"{name}"'
+        return None
+
+    def things(self) -> list[int]:
+        """Every thing: what the rooms and Ace hold, and what those hold, the rooms' doors, and
+        the characters."""
+        todo = [self.word(at + 4) for at in self.rooms] + [self.word(ACE + 4)] + list(self.behaviour)
+        todo += [self.word(at + 0x0A + 2 * k) for at in self.rooms for k in range(3)]
+        found: set[int] = set()
+        while todo:
+            at = todo.pop()
+            while at and at not in found and at < len(self.data) - 0x1C:
+                found.add(at)
+                todo.append(self.word(at + 4))
+                at = self.word(at + 8)
+        return sorted(found)
+
+    def scripts_of(self, thing: int) -> dict[str, int]:
+        found = {}
+        for field, kind in ((0x0A, "every frame"), (0x0C, "when used")):
+            if self.word(thing + field):
+                found[kind] = self.word(thing + field)
+        if thing in self.behaviour:
+            found["behaviour"] = self.behaviour[thing]
+        return found
+
+    def speech(self, at: int) -> str | None:
+        parts = []
+        at += SPEECH
+        while (part := self.text(at)) is not None:
+            parts.append(part)
+            at += len(part) + 1
+            if self.data[at] != 0xFF:
+                break
+            at += 1
+        return " / ".join(parts) if parts else None
+
+    def operand(self, kind: str, at: int, targets: list[int]) -> tuple[str, int]:
+        if kind == "b":
+            return str(self.data[at]), 1
+        value = self.word(at)
+        if kind in "tT":
+            said = self.text(value) if kind == "t" else self.speech(value)
+            return (f'"{said}"' if said else f"{value:04X}"), 2
+        if kind == "o":
+            return self.name(value) or f"{value:04X}", 2
+        if kind == "v":
+            return self.name(value) or f"[{value:04X}]", 2
+        if kind == "j":
+            if value:
+                targets.append(value)
+            return f"@{value:04X}", 2
+        if kind == "a":
+            return f"animation {value:04X}", 2
+        # a number is often a thing's address, compared with what something holds
+        named = self.name(value)
+        return (f"{value:04X} {named}" if named else f"{value:04X}"), 2
+
+    def disassemble(self, start: int) -> dict[int, str]:
+        """Follows a script from where it starts, through every place it can go to."""
+        data, lines, todo, labels = self.data, {}, [start], []
+        while todo:
+            at = todo.pop()
+            while at and at not in lines and at < len(data):
+                op = data[at]
+                if op == 0:
+                    lines[at] = "end"
+                    break
+                if op not in OPCODES:
+                    lines[at] = f"(not an opcode: {op:02X})"
+                    break
+                name, kinds = OPCODES[op]
+                p, args, targets = at + 1, [], []
+                for kind in kinds:
+                    if kind == "m":
+                        # a menu: a count, a title, and that many items; a target for each, and
+                        # one more after them for when none is chosen, if there's one
+                        menu = self.word(p)
+                        p += 2
+                        count = data[menu]
+                        items = [self.text(self.word(menu + 3 + 2 * i)) or "?" for i in range(count)]
+                        args.append(f'"{self.text(self.word(menu + 1))}"')
+                        for i in range(count + 1):
+                            target = self.word(p)
+                            if i == count and not any(abs(target - t) < 0x80 for t in targets):
+                                break
+                            p += 2
+                            targets.append(target)
+                            args.append(f"{items[i] if i < count else '(none)'}: @{target:04X}")
+                    elif kind == "s":
+                        # a switch: the word the game sets, then a table of places, which ends
+                        # where one of the places begins, or at a word that can't be a place
+                        args.append(f"on {self.word(p)}")
+                        p += 2
+                        table: list[int] = []
+                        while not any(p <= t < p + 2 for t in table + labels if t > at):
+                            target = self.word(p)
+                            if not 0x100 <= target < len(data):
+                                break
+                            table.append(target)
+                            args.append(f"@{target:04X}")
+                            p += 2
+                        targets += table
+                    else:
+                        text, size = self.operand(kind, p, targets)
+                        args.append(text)
+                        p += size
+                if op == 0x0A:
+                    for kind in NATIVE_OPERANDS.get(self.word(at + 1), ""):
+                        text, size = self.operand(kind, p, targets)
+                        args.append(text)
+                        p += size
+                lines[at] = f"{name} {', '.join(args)}".rstrip()
+                todo += targets
+                labels += targets
+                if op in (0x00, 0x04):
+                    break
+                at = p
+        return lines
+
+
+def list_scripts(folder: str, pattern: str) -> None:
+    scripts = Scripts(folder)
+    match = re.compile(pattern, re.IGNORECASE)
+    for thing in scripts.things():
+        name = scripts.name(thing)
+        if not name or not match.search(name):
+            continue
+        holder = scripts.name(scripts.word(thing + 6))
+        print(f"{name} ({thing:04X})" + (f", in {holder}" if holder else ""))
+        for kind, start in scripts.scripts_of(thing).items():
+            print(f"    {kind}, from {start:04X}")
+            for at, line in sorted(scripts.disassemble(start).items()):
+                print(f"        {at:04X}  {line}")
+        print()
+
+
 # --- the messages ------------------------------------------------------------------------
 
 
@@ -419,6 +624,8 @@ def main(arguments: list[str]) -> None:
         list_rooms(arguments[0])
     elif len(arguments) >= 2 and arguments[1] == "things":
         things(arguments[0])
+    elif len(arguments) >= 2 and arguments[1] == "scripts":
+        list_scripts(arguments[0], arguments[2] if len(arguments) >= 3 else ".")
     elif len(arguments) >= 2 and arguments[1] == "messages":
         list_messages(arguments[0])
     elif len(arguments) >= 3 and arguments[1] == "pictures":

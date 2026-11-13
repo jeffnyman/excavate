@@ -269,17 +269,118 @@ hyperspace, check fuel supply.
 
 The coordinates are kept as one string in the data: 356972, 927325, 480117, 563381, 711509,
 910934 and 910934. The last two are where the Falcon is and where it's headed. Setting a
-course changes the last, and arriving changes the other: at the Blackstar both are 711509. The
-others are Cron, 480117; the Sarbai base, 563381, from a memo; and the asteroid the real estate
-agency lists as sold, 356972. 927325 is still to place.
+course changes the last, and arriving changes the other: at the Blackstar both are 711509.
 
-## Where this stops
+The game also keeps where the Falcon is as a number, the coordinate's place in the string, and
+a table of the transporter rooms the first four lead to:
+
+| Coordinate | Where | The Falcon's transporter leads to |
+|---|---|---|
+| 356972 | The small asteroid the real estate agency lists as sold | A lab |
+| 927325 | Delphi, Cron's moon | The science complex's transporter room |
+| 480117 | Cron | The police station's transporter room |
+| 563381 | The Sarbai base, on asteroid D-892 | The base's transporter room |
+| 711509 | Where the Blackstar drifts | Nowhere: "We are not in orbit around a planet." |
+| 910934 | Where the Falcon starts | Nowhere |
+
+A planet's own transporter works only while the Falcon is in orbit above it: "The Falcon is
+too far away." G.U.N.'s cargo transporter, in its factory on Cron, goes to Delphi and back,
+and moves the Falcon's place with it.
+
+## Where the play stops
 
 The play stops at the Blackstar. By then it had gone through the loader, every display mode
 Excavate has, both kinds of sound and a dozen rooms on two ships and a planet, without
 needing anything more of Excavate, and what's past it is the same engine in more rooms. Playing
-on is slow work: Ace has to be placed to the pixel, and the menus are slow to answer. What the
-rest of the game holds is in its files, which the tool reads: every room, everything in each,
-and all the text. The way to the end would come from the objects' scripts, the small bytecode
-language each thing's examine and use run in, which is still to be decoded. The next lead in
-play is back on Cron, at the Mind Zi Tavern, where the agent's tip came from.
+on is slow work: Ace has to be placed to the pixel, and the menus are slow to answer. The rest
+of the game is read from its scripts instead.
+
+## The scripts
+
+What everything in the game does is written in a small bytecode, in `SCODE.EXE`'s data, and
+run by an interpreter of 57 opcodes in its code. The tool disassembles all of it:
+
+```
+python tools/firststar/omnicron_files.py <the game's folder> scripts [<name>]
+```
+
+### The language
+
+A thing's record points at two scripts. One runs every frame while the thing is in the room
+Ace is in: a door opening as he comes near. The other runs when Ace touches the thing and
+presses Return, or uses it from a pocket, and it usually starts with the thing's menu, its
+examine text and where USE goes. The characters who move and talk by themselves, 63 of them,
+have a third, their behaviour, listed in a table of their own: P.A.L., Drek, the guards, the
+Ungars, Quattro. A behaviour runs a step a frame. Walking to a place or through a door takes
+as many frames as the walk does, and `count` and `loop` make it wait.
+
+The opcodes come in a handful of kinds:
+
+- **Flow:** `goto`; comparisons of a word or a byte with a number (`compare`, `test`), which
+  leave flags for `if.equal`, `if.not.equal`, `if.less` and `if.not.less`; `switch`, which picks
+  a place by a word that other scripts set; `if.carried`, `if.here` and `if.touching`, which test
+  where things are.
+- **State:** `set`, `add` and `copy`, for words and bytes. Their target is any address in the
+  data, and very often it's an operand of another script: a card key unlocks a door by setting
+  the word its `switch` picks by, and Quattro's whole ending turns on one such word.
+- **Saying:** `say`, a message in the box; `talk`, a portrait and a conversation, from the
+  second data segment where the face-to-face text is kept, a page per Enter; `menu`, a title and
+  items, and a place for each choice.
+- **Moving things:** `move`, `move.to`, `give.to` and `remove`, which take a thing out of one
+  holder's list and put it at the head of another's: a room's, a thing's, or Ace's pockets.
+  `buy` takes credits off the MetaCard and gives Ace a thing, or goes somewhere else if he can't
+  pay.
+- **Moving characters:** walking to a thing, to a place, or through a door; animations.
+- **Native:** a call into `SCODE.EXE`'s own code, for what the language can't do: the
+  dynalift's floors, the transporters, the explosions.
+
+A script's comments and names are gone, but its text isn't: the disassembly prints each
+message, each menu's items, and each thing's name where the script refers to it, so it reads
+almost as the designers wrote it.
+
+### How the game is won
+
+The awards ceremony the Chief throws is where the game decides, and it checks two things. If
+Quattro is alive, the ceremony cuts away to his asteroid, "Meanwhile, on a small asteroid
+somewhere near the planet Cron .......", where his death ray fires on Cron and he gloats: "It
+worked, it worked! Victory is mine." If he's dead but the Sarbai droids are still programmed,
+one of them is at the ceremony: "This is for destroying our base on asteroid D-892. Eat plasma,
+Powers." Only with both done: "Congratulations, you have successfully completed the Omnicron
+Conspiracy. The final victory is yours."
+
+From the scripts, the way there is:
+
+1. **Blow up the drug lab.** A frug on Cron's streets sells a thermal detonator for 50
+   credits, but not to a man wearing a Star Police badge, as the manual warns: "The Star Police
+   badge is often more trouble than its worth." Using the detonator sets a timer, and when it
+   goes off, the game checks where the detonator is. If it's in the secret drug lab, reached
+   through the Mentant Temple, "Booooooooooommmmmm": the lab is wrecked, presumably where the
+   two pictures no room uses come in, and the Chief's script moves on.
+2. **Burn out the Sarbai droids.** The master computer that programs them is in the tunnels
+   behind the Green Tattoo bar's store room, behind a door that only the card key from Rand
+   Ungar's couch opens. With the
+   Marry Banillo album from the record store in it ("More boring songs about people in love"),
+   PROGRAM DROIDS overloads it: "!!SYSTEM OVERLOAD!! DATA BANKS ARE BURNING OUT". The Iron
+   Munchkin album only reprograms them: "Droids set to blow the guts out of anything and
+   everything that gets within blaster range."
+3. **Kill Quattro.** He's in the lab of the Sarbai base, at 563381, with his death ray. The
+   ALSWELL has two settings, stun and kill, and only killing him sets what the ceremony checks.
+   There's a time limit: once a counter the game's clock advances reaches 4, with Quattro alive
+   and Ace not in that lab, the cutaway to the asteroid starts on its own.
+4. **Report to the Chief.** With the lab gone, he says "Congratulations, Captain Powers. Your
+   mission appears to have been a complete success. As a token of our gratitude we have arranged
+   for a little awards ceremony in your honor."
+
+On the way, the scripts show who's who. Cort Ungar welcomes Ace and mourns "the death of Dr.
+Quattro", one of his best men, and recommends his sister Rand, who "helps Dad administer his
+droid business". Rand is behind the Sarbai base: once Ace has burned out the droids or killed
+Quattro, she drops the act: "I'm very
+disappointed in you. Attacking my base is a sure way to piss me off." Dr. Lester Galloway is one of the "renegade
+Mentants" behind the drug lab, and waits for Ace after
+it blows: "You know too much, so now you must die." And Rand's attempt to seduce Ace is cut
+short by the game itself: "We sincerely apologize for the inconvenience, but this 'is' a family
+game."
+
+This is read from the scripts and the code they call, and hasn't been played: the order the
+steps can be done in, and what gets Ace into each place, is still for the scripts of the rest
+of the rooms to show.
