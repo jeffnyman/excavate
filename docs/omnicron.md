@@ -19,9 +19,10 @@ original story by Subway Software.
 | `SOUNDS.DNL`, `THEME.DNL` | Sounds; the game loads the first as it starts |
 | `TITLEEGA.CMP`, `TITLECGA.CMP` | The title picture: the first for the EGA and the MCGA, the second for the CGA |
 | `CONTROL1.CMP`, `CONTROL7.CMP` | The control panel around the room: the first for the EGA and the MCGA, the second for the CGA |
-| `ALLROOM0.DAT` to `ALLROOM3.DAT`, `OFFSETS0.DAT` to `OFFSETS3.DAT` | The rooms, in four sets, each with its table of offsets |
-| `DIALOG.BUE` | The dialog |
-| `AWARDS.PAK`, `FCONTROL.PAK`, `PAKDATA\*.PAK` | Pictures, 160 of them in `PAKDATA`, named for what they show: Ace (`ALLACE3`), P.A.L. (`PAL`, `PALZM`), doors, missiles, the people of Cron |
+| `ALLROOM0.DAT` to `ALLROOM3.DAT`, `OFFSETS0.DAT` to `OFFSETS3.DAT` | The rooms' pictures, 212 of them in four sets, each set with where each picture starts |
+| `DIALOG.BUE` | Not the dialog: the picture of the box it's shown in |
+| `AWARDS.PAK` | A full screen: the awards |
+| `FCONTROL.PAK`, `PAKDATA\*.PAK` | Sprites, 160 files of them in `PAKDATA`, named for what they show: Ace (`ALLACE3`), P.A.L. (`PAL`, `PALZM`), doors, missiles, the people of Cron |
 | `OMNICRON.COM` | Not the game's: 397 bytes, dated 2009, added for DOSBox (see below) |
 
 The game's files are all dated December 25, 1996. The manual says to copy both disks to a
@@ -99,6 +100,98 @@ the game's one INT 13h is a disk reset after it puts the timer back.
 Excavate's test plays it this far, on the MCGA and the EGA: the loader, the display, the
 music player handing back, P.A.L.'s three messages, and the bedroom.
 
+## The game's files
+
+`tools/firststar/omnicron_files.py` reads them (see [the tools](../tools/README.md)): it lists
+the rooms and the text, and writes every picture as a PNG file.
+
+### The packing
+
+The rooms' pictures, the sprites and `AWARDS.PAK` are packed the same way, in two layers.
+`SCODE.EXE` unpacks them itself, with a routine of about a hundred instructions.
+
+- **Byte pairs.** A packed file starts with its size unpacked, then has blocks. Each block lists
+  pairs: a byte that stands for two others, and those two. The block's bytes follow, and each
+  that stands for a pair becomes its two, which can stand for pairs in turn. A byte stands for
+  a pair only if that pair comes before the one that made it in the list, so the same byte can
+  mean different pairs in different places. It's much the scheme Philip Gage published as byte
+  pair encoding in *The C Users Journal* in 1994, five years later.
+- **Runs.** What that gives has runs: BFh and a count is that many zeros, and CFh, a count and
+  a byte is that many of the byte.
+
+The CMP files, the title and the control panel, are packed another way, row by row: a table of
+where each row starts, and in each row runs of a 2-byte word repeated or words given one by one.
+That unpacking is the loader's, in its graphics library.
+
+### The pictures
+
+All of them are 16 colors, two pixels to a byte. The CGA's title and control panel are the
+exception, with four pixels to a byte. A picture starts with 32 bytes that give its width and
+height.
+
+A room's picture is 200 by 81 pixels, the window in the middle of the control panel.
+`ALLROOM0.DAT` has the 8 rooms of Ace's ship, the Falcon:
+
+![The Falcon, from the bedroom to outer space](images/omnicron-ship.png)
+
+The other three sets are Cron and what's around it: the Blackstar, the freighter Ace finds
+attacked, and the police station, the Mentant Temple, the library and the Green Tattoo bar in
+`ALLROOM1.DAT`; the city's streets and shops, the hotel and the Mind Zi Tavern in
+`ALLROOM2.DAT`; and in `ALLROOM3.DAT`, the G.U.N. factory and its offices, the labs, the secret
+drug lab and the asteroid.
+
+![Some of Cron: the police station, the Green Tattoo bar, the Mentant Temple, the Mind Zi Tavern, Bellows' study, G.U.N.'s reception, the secret drug lab and the asteroid](images/omnicron-cron.png)
+
+A sprite file has frames, each with its own size. Ace's `ALLACE3.PAK` has 114: walking,
+standing, shooting, breaking up into sparks, and one of him as a giant purple artichoke. As the game loads
+a sprite, it swaps the file's see-through color, given in its header, with color 0, which is
+see-through when it draws. A character can also have one more color changed: Ace's
+olive-drab helmet and boots are black on the screen.
+
+![Ace walking and standing, as he's drawn](images/omnicron-ace.png)
+
+The pictures are drawn here in the game's own colors, the 16 its loader gives the MCGA. They
+aren't the EGA's: the dark colors are darker, the bright ones purer, the brown is olive and the
+light red is orange.
+
+### The rooms
+
+The rooms themselves are records in `SCODE.EXE`'s data. Each has a name, a picture and its set,
+three doors, and the room each door leads to. There are 252 of them, more than the pictures,
+because some pictures serve several rooms: the five hallways of the police station are one
+picture, and so are the hotel's four bedrooms. The clerk gives Ace number 4, "at the end of the
+hallway". A room wider than the screen is
+two or more pictures side by side, each its own record, with a door between them.
+
+Two pictures have no room. They're the secret drug lab again, wrecked, so the game presumably
+swaps them in after the lab blows up:
+
+![The secret drug lab, before and after](images/omnicron-lab.png)
+
+### The text
+
+`SCODE.EXE` also has all the text: what people say, what things look like when Ace looks at
+them, the letters, memos and logs he finds, the menus, and the credits. A message that follows
+another after an Enter is marked as one. Some of what's there:
+
+- An ad for Epyx's *The Legend of Blacksilver*, among lines that read like TV, presumably for
+  the OmniMon, which "allows you to view programming from many different worlds": "Ready for a
+  spine-tingling swords and sorcery adventure? Try The Legend of Blacksilver, from Epyx. Coming
+  soon."
+- The Blackstar's log, which stops at "Wait! Those markings! Sarbai!! What are they doing
+  .....", and its manifest, with Dr. L. Quattro on the passenger list.
+- Quattro's victory speech, in two versions. One begins "You're too late, Captain Ace Powers",
+  the other "At last, my death ray is fully operational", and both get to "DEAD wrong. HA HA HA
+  HA HA HA...."
+- The real estate agency's listings, each with its star coordinate. The asteroid in the Cron
+  system, 356972, is sold. A memo gives the Sarbai base's: "asteroid D-892 coordinate 563381".
+  A string of seven six-digit numbers in the data has Cron's 480117 among them, and these two.
+- The rejuvenation booth. "You were lucky this time, Boss. Please be more careful. This
+  procedure is very unpredictable." When the luck runs out, Ace's genetic structure has been
+  permanently altered: "But don't feel too bad. I hear the girls just can't keep their hands off
+  of a giant purple artichoke in a Star Police uniform." That's the artichoke among his frames.
+
 ## Still to look at
 
-The files: the rooms, the dialog and the pictures. Then the game itself, from the ship to Cron.
+The game itself, from the ship to Cron, and what makes it end: which of the seven coordinates
+the ship goes to, and what's at each.

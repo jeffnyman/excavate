@@ -23,4 +23,5 @@ so that its own program runs as it was shipped.
   port nothing answers.
 - [The Omnicron Conspiracy](omnicron.md): First Star Software, 1989. A loader that keeps the
   graphics library and runs the game, a game that runs its music player, a keyboard DOS has to
-  read through the game's own INT 16h, and an EGA mode drawn on its second page.
+  read through the game's own INT 16h, and an EGA mode drawn on its second page. Its files:
+  pictures packed with byte pairs, 252 rooms in the game's code, and all its text.

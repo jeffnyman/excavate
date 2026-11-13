@@ -101,3 +101,24 @@ python tools/paragon/kennedy_missions.py <the game's folder> --check
 - **`--convinced`** prints the three stages that each add a warning to Dave Powers; three win
   the game.
 - **`--check`** reads every stage of every script to its end, and says how many did.
+
+## The Omnicron Conspiracy
+
+`firststar/omnicron_files.py` reads *The Omnicron Conspiracy*'s files: the rooms and the text
+from `SCODE.EXE`, and the pictures from `ALLROOM0.DAT` to `ALLROOM3.DAT`, `PAKDATA` and the rest.
+How the game packs them is in [docs/omnicron.md](../docs/omnicron.md#the-games-files).
+
+```
+python tools/firststar/omnicron_files.py <the game's folder> rooms
+python tools/firststar/omnicron_files.py <the game's folder> messages
+python tools/firststar/omnicron_files.py <the game's folder> pictures <folder>
+```
+
+- **`rooms`** lists each set's pictures with the rooms that use them, and where each room's
+  doors lead.
+- **`messages`** prints the game's text in the order it's kept, with "(Enter)" where a message
+  goes on after an Enter.
+- **`pictures`** writes every picture to the folder as a PNG file, twice its size, in the
+  game's colors: each room's picture, the full screens, and each sprite file as a sheet of its
+  frames. A sprite's frames are as the file has them, before the game changes any of a
+  character's colors.
