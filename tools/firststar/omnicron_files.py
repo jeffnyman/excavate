@@ -1,6 +1,7 @@
 """Reads The Omnicron Conspiracy's files: its rooms, its text, and its pictures.
 
     python tools/firststar/omnicron_files.py <the game's folder> rooms              every room, with where its doors go
+    python tools/firststar/omnicron_files.py <the game's folder> things             what's in each room, and what holds what
     python tools/firststar/omnicron_files.py <the game's folder> messages           all of the game's text
     python tools/firststar/omnicron_files.py <the game's folder> pictures <folder>  every picture, as PNG files
 
@@ -326,6 +327,50 @@ def list_rooms(folder: str) -> None:
         print()
 
 
+# --- the things --------------------------------------------------------------------------
+
+# Ace's own record, which holds what he carries
+ACE = 0xCDE7
+
+
+def things(folder: str) -> None:
+    """Prints what's in each room as the game starts, and what each thing holds. A thing's
+    record has a pointer to its name at 2; at 4, the first thing it holds; at 6, what holds it,
+    a room, another thing, or Ace; and at 8, the next thing in the same place. A room's first
+    thing is at its 4 too. The doors are left out, and so is what the game makes as it goes,
+    Ace's shots among them."""
+    data = code(folder)[DATA:]
+    found = rooms(folder)
+
+    def word(at: int) -> int:
+        return struct.unpack_from("<H", data, at)[0]
+
+    def name(at: int) -> str:
+        match = re.match(rb"([ -~]{1,40})\0", data[word(at + 2):])
+        return match.group(1).decode("ascii") if match else "?"
+
+    def chain(first: int, depth: int, seen: set[int]) -> int:
+        """Prints a chain of things and what each holds; returns how many it printed."""
+        printed = 0
+        at = first
+        while at and at not in seen and at + 0x1C <= len(data):
+            seen.add(at)
+            if name(at) not in ("A door", "?"):
+                print("    " * depth + name(at))
+                printed += 1 + chain(word(at + 4), depth + 1, seen)
+            at = word(at + 8)
+        return printed
+
+    seen: set[int] = set()
+    for room in sorted(found.values(), key=lambda room: (room.set, room.picture, room.at)):
+        print(f"{room.name} (ALLROOM{room.set}.DAT, picture {room.picture})")
+        if chain(word(room.at + 4), 1, seen) == 0:
+            print("    nothing")
+
+    print("Ace Powers")
+    chain(word(ACE + 4), 1, seen)
+
+
 # --- the messages ------------------------------------------------------------------------
 
 
@@ -372,6 +417,8 @@ def write_pictures(folder: str, out: str) -> None:
 def main(arguments: list[str]) -> None:
     if len(arguments) >= 2 and arguments[1] == "rooms":
         list_rooms(arguments[0])
+    elif len(arguments) >= 2 and arguments[1] == "things":
+        things(arguments[0])
     elif len(arguments) >= 2 and arguments[1] == "messages":
         list_messages(arguments[0])
     elif len(arguments) >= 3 and arguments[1] == "pictures":

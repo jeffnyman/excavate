@@ -134,9 +134,10 @@ A room's picture is 200 by 81 pixels, the window in the middle of the control pa
 
 ![The Falcon, from the bedroom to outer space](images/omnicron-ship.png)
 
-The other three sets are Cron and what's around it: the Blackstar, the freighter Ace finds
-attacked, and the police station, the Mentant Temple, the library and the Green Tattoo bar in
-`ALLROOM1.DAT`; the city's streets and shops, the hotel and the Mind Zi Tavern in
+The other three sets are Cron and what's around it: in `ALLROOM1.DAT`, the Sarbai base, a
+station of orange hallways where Quattro keeps his death ray, then the Blackstar, the freighter
+Ace finds attacked, and the police station, the Mentant Temple, the library and the Green Tattoo
+bar; the city's streets and shops, the hotel and the Mind Zi Tavern in
 `ALLROOM2.DAT`; and in `ALLROOM3.DAT`, the G.U.N. factory and its offices, the labs, the secret
 drug lab and the asteroid.
 
@@ -167,6 +168,16 @@ Two pictures have no room. They're the secret drug lab again, wrecked, so the ga
 swaps them in after the lab blows up:
 
 ![The secret drug lab, before and after](images/omnicron-lab.png)
+
+### The things
+
+Everything Ace can touch is a record too, laid out like a room's: a name, the first thing it
+holds, what holds it (a room, another thing, or Ace), and the next thing in the same place. So
+the data says where everything is as the game starts, down to what's in each drawer: the card
+key and DexBoost capsule in Ace's night stand, a hamburger in the Falcon's Preserve-O-Matic, an
+antimatter grenade on Fred the Clip, Stardust in Galloway's night stand. There are card keys in
+three places besides Ace's bedroom: on the hotel's manager, on a thug in the Mind Zi Tavern, and
+on Rand Ungar's couch, with brochures. Quattro waits in the Sarbai base's lab with his death ray.
 
 ### The text
 
@@ -234,6 +245,12 @@ hyperspace, check fuel supply.
 7. **The Blackstar.** Its crew are dead in the hallways and the cockpit ("He's been fricasseed
    by a blaster"), and the cockpit's panel offers what the controls have left: VIEW SHIPS LOG
    and VIEW SHIPS MANIFEST.
+8. **The cargo bay.** Agent 786's droid starts talking as soon as Ace reaches it: "S.P.
+   Operative 786 personal droid reporting, sir." Sarbai assassin droids attacked three days ago
+   and killed everyone; the agent had traced Stardust to Cron, bound for the planet Sheem as
+   medical supplies; the two passengers were Dr. Quattro, who has vanished, and Carthon Paucert,
+   who's "over there". Paucert is the body on the floor, "toasted by blaster fire", with nothing
+   on him.
 
 ### The coordinates
 
@@ -245,5 +262,5 @@ agency lists as sold, 356972. 927325 is still to place.
 
 ## Still to look at
 
-The rest of the game, from the Blackstar on: Agent 786's droid, Paucert, and where the case
-leads on Cron.
+The rest of the game, from the Blackstar back to Cron: the Mind Zi Tavern, where the agent's
+tip came from, and where the case leads from there.

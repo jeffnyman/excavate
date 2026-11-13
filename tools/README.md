@@ -110,12 +110,15 @@ How the game packs them is in [docs/omnicron.md](../docs/omnicron.md#the-games-f
 
 ```
 python tools/firststar/omnicron_files.py <the game's folder> rooms
+python tools/firststar/omnicron_files.py <the game's folder> things
 python tools/firststar/omnicron_files.py <the game's folder> messages
 python tools/firststar/omnicron_files.py <the game's folder> pictures <folder>
 ```
 
 - **`rooms`** lists each set's pictures with the rooms that use them, and where each room's
   doors lead.
+- **`things`** lists what's in each room as the game starts, each thing with what it holds, and
+  what Ace carries.
 - **`messages`** prints the game's text in the order it's kept, with "(Enter)" where a message
   goes on after an Enter.
 - **`pictures`** writes every picture to the folder as a PNG file, twice its size, in the
