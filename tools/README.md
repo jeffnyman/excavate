@@ -84,3 +84,20 @@ python tools/paragon/kennedy_files.py <the game's folder> task <number or order>
   first thing said on it.
 - **`person`** and **`task`** print one mission's text: its rings of passages, each with the
   agents who say it, and the words the script listens for.
+
+`paragon/kennedy_missions.py` reads the missions' scripts: each stage's questions and the
+answers they want, where and when the person can be found, and the reports that can come back,
+with the conditions for each. How they run is in
+[docs/kennedy.md](../docs/kennedy.md#the-missions).
+
+```
+python tools/paragon/kennedy_missions.py <the game's folder> person <number or name>
+python tools/paragon/kennedy_missions.py <the game's folder> task <number or order>
+python tools/paragon/kennedy_missions.py <the game's folder> --convinced
+python tools/paragon/kennedy_missions.py <the game's folder> --check
+```
+
+- **`person`** and **`task`** print a mission, stage by stage.
+- **`--convinced`** prints the three stages that each add a warning to Dave Powers; three win
+  the game.
+- **`--check`** reads every stage of every script to its end, and says how many did.

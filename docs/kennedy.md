@@ -354,7 +354,91 @@ CAMPAIGN IN 64", "1,000 TROOPS TO LEAVE VIETNAM", "IT'S A MAD, MAD, MAD, MAD WOR
 groups are a line, "You had better make news today, or it is all over with!", and the pages of
 the help: "General Program Information", "The Wait Command".
 
+## The missions
+
+Each record's script is bytecode that `GOI.EXE` runs for the agent on the mission.
+`tools/paragon/kennedy_missions.py` reads every script: all 243 stages in the two files decode
+to their ends.
+
+### How a mission runs
+
+A script starts with an index, a word for each stage, counting from the word itself. A stage
+is three parts:
+
+1. **Its length**, a word that counts itself.
+2. **Its commands.** The agent asks you things, says things, and sets things up, until the
+   order is given.
+3. **A trailer:**
+   - Two delays, in half hours: until the report comes back, and until the next stage
+     begins. C7h or more means never.
+   - The **appointments**: where and when the person can be found, as day, start and end
+     times, city and place, in local time. `GOI.EXE`'s cities carry their hours ahead of
+     Dallas: Washington 1, London 6, Hawaii −4.
+   - The **reports**: a passage each and the conditions for it. The first whose condition
+     holds is the one given.
+
+If the agent can't find the person where and when you sent them, the stage gives way to one of
+the game's own records, 1 or 2: "You sent me to the wrong city!" If none of a stage's reports
+applies, the agent goes on to the next stage. That's how a mission moves forward: failure is a
+report, and success is getting past all of them.
+
+The 19 commands:
+
+| Op | Bytes | What it does |
+|---|---|---|
+| 00h | 1 | Nothing |
+| 01h | 1 | The order is given; ends every stage |
+| 02h | 1 + condition + 6 | A yes-or-no question, with where to go on "no" |
+| 03h | 1 + condition + 9 | A question answered in words: a list of words, and the share of them, in percent, the answer needs. 0 takes anything; above 100 never asks and always passes (all 66 of those ask "Err") |
+| 04h | 1 + condition + 7 | Should they say they're from the future? If so, what should they tell the person: the answer is matched against a list of words, and convinces if it scores enough |
+| 05h | 1 | Asks where and when, reads the order back ("Let me see if I have this straight"), and waits for you to confirm it |
+| 06h, 07h | 4 | Sets part of the order (the hour, the day, a.m. or p.m., the city or the place), or sets it only if you didn't give it |
+| 08h, 09h | 4, 3 | Goes on to the mission to see someone else, at a given stage or the first |
+| 0Ah | 1 + condition + 3 | Says a passage |
+| 0Bh | 5 | Sets the meeting's time |
+| 0Ch | 1 | Gives up: "What should I do now?" |
+| 0Dh | 3 | Jumps, counting from the jump's word |
+| 0Eh | 1 | One more person warns Dave Powers |
+| 0Fh | 2 | One of 17 special actions: leaving an agent in 1963, going on to kill the person or to disable an FBI agent's car, marking the motorcade canceled, and others |
+| 10h, 11h | 2 | Sets or clears one of 28 flags, which carry what's happened from one mission to another |
+| 12h | 3 | Ends the game, after a delay: an agent in a coma, shot escaping the police, or dead |
+
+A condition is items ended by a zero: the agent on the mission, whether the person is still
+unfamiliar, a time of day, the person, the day, whether you said to tell them about the
+future, the city, the place, the order's verb, or a flag. Items of the same kind are ORed,
+and different kinds ANDed.
+
+### How the game is won
+
+The count of people who warn Dave Powers starts at zero. Only command 0Eh adds to it, and it's
+in three stages in all the missions. Each is at the end of a chain, reached only when none of
+the stages before it gave a failure:
+
+- **Carl Kaysen.** Bridgette goes on from Kaysen to William Sullivan, then to Theodore
+  Sorensen: "Thank God it worked. He contacted Dave Powers just like he said he would."
+- **Evelyn Lincoln.** Blue, sent to Nettie Carlson, goes on to meet Abe Lincoln, Evelyn's
+  husband, at the Point Cafe. That sets a flag; then William Stein, a historian, has to tell
+  Mrs. Lincoln he's from the future, and say something that convinces her: "Adam, this is a
+  very emotional moment for me."
+- **Roswell Gilpatric.** From Gilpatric to Adam Yarmolinsky, John McNaughton, and Robert
+  McNamara: "Adam! Everything went as planned. McNamara phoned Dave Powers."
+
+When a report comes in and the count is three, the game offers to save, then ends. It writes
+the token for `RUND.EXE` (see above) with the number of agents left in 1963, and exits with
+code 2 for the conversation on Air Force One. It checks the count when a saved game is loaded,
+too.
+
+Short of three, the game runs on to Friday the 22nd. At noon it ends with the assassination,
+with a line for the warnings Dave Powers had, if any: "Dave Powers was warned of the plot to
+assassinate Kennedy by someone of importance but felt that it would take more than just one
+such warning..."
+
+`GOI.EXE` writes the token only when one or two agents, or none, were left in 1963. With three
+or more, it exits with code 5 or more, without the token. `KENNEDY.BAT` then says "Error:
+Invalid exit code. Returning to DOS". By the code, the game is won, and the ending never comes;
+I haven't seen it happen.
+
 ## Still to look at
 
-The missions' scripts, which say what each mission does and how one leads to the next; playing
-the game itself; `GOIDAT.SAV`; and the "slow adapter" setup.
+Playing the game itself, to the three warnings and onto Air Force One; `GOIDAT.SAV`; and the
+"slow adapter" setup.

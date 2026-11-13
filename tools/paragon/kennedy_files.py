@@ -28,13 +28,21 @@ NIBBLES = b"\xe5taoinhreslu\xf4mc"
 
 # where GOI.EXE (153,152 bytes) keeps its vocabulary, in its data segment, which starts 1A6F0h
 # into its image: its nouns, a far pointer to each one's name and a word of flags, from noun 0,
-# Iris Steel; and its verbs, a far pointer each
+# Iris Steel; its verbs, a far pointer each; its cities, a far pointer and the hours each is
+# ahead of Dallas; the places in a city, and the days of the week from Friday the 15th, a far
+# pointer each
 EXE_SIZE = 153_152
 DATA_SEGMENT = 0x1A6F
 NOUNS_AT = 0x3346
 NOUNS = 147
 VERBS_AT = 0x36B8
 VERBS = 20
+CITIES_AT = 0x1919
+CITIES = 26
+PLACES_AT = 0x3306
+PLACES = 16
+DAYS_AT = 0x19B5
+DAYS = 8
 
 # the verbs a key can have that take a thing: what's stolen, and whose car is disabled
 STEAL = 0x11
@@ -96,6 +104,9 @@ def show_news(folder: str) -> None:
 class Vocabulary:
     nouns: list[str]
     verbs: list[str]
+    cities: list[str]
+    places: list[str]
+    days: list[str]
 
 
 def vocabulary(folder: str) -> Vocabulary:
@@ -111,9 +122,15 @@ def vocabulary(folder: str) -> Vocabulary:
         # a name, then a tab and the other names it answers to
         return exe[data + offset:end].decode("latin-1").split("\t")[0]
 
-    nouns = [name(*struct.unpack_from("<2H", exe, data + NOUNS_AT + (6 * n))) for n in range(NOUNS)]
-    verbs = [name(*struct.unpack_from("<2H", exe, data + VERBS_AT + (4 * n))) for n in range(VERBS)]
-    return Vocabulary(nouns, verbs)
+    def names(at: int, count: int, size: int) -> list[str]:
+        return [name(*struct.unpack_from("<2H", exe, data + at + (size * n))) for n in range(count)]
+
+    return Vocabulary(
+        nouns=names(NOUNS_AT, NOUNS, 6),
+        verbs=names(VERBS_AT, VERBS, 4),
+        cities=names(CITIES_AT, CITIES, 6),
+        places=names(PLACES_AT, PLACES, 4),
+        days=[f"{day} {15 + n}" for n, day in enumerate(names(DAYS_AT, DAYS, 4))])
 
 
 # the records
