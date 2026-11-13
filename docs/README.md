@@ -15,7 +15,7 @@ so that its own program runs as it was shipped.
   it didn't have; its slide show of IFF pictures; and an ending that runs only on a token the
   game leaves in the BIOS's data area, a conversation with Kennedy that three lines win; and
   its missions, a vocabulary, text packed in nibbles, and the scripts that decide that three
-  people must warn Dave Powers.
+  people must warn Dave Powers; and the week that wins it, played through.
 - [Presumed Guilty](guilty.md): Cosmi, 1989, as Celery Software released it in 1993. The
   President's sequel, its setup giving away the passphrase it once asked for, its logon gone,
   a villain cracking that passphrase as the game's clock, an Umbra code and a false one, a

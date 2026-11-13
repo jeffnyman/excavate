@@ -438,7 +438,75 @@ or more, it exits with code 5 or more, without the token. `KENNEDY.BAT` then say
 Invalid exit code. Returning to DOS". By the code, the game is won, and the ending never comes;
 I haven't seen it happen.
 
+## Playing the week
+
+Excavate plays the game through, in a test: from `KENNEDY.BAT`, a week of orders to the three
+warnings, the game's exit with code 2, and the batch file's `rund Z k0`, which finds the
+game's token and opens on Air Force One. The scripts say what each mission wants; playing it
+showed what else the game asks of you.
+
+### What the week takes
+
+- **Money.** Every agent is broke ("Dad, I'm stone broke. I need some money before I can go any
+  further than Fort Worth or Dallas"). Steel robs a bank in Fort Worth on Friday night ("I've
+  got over $51,000 in cash") and hands it out back at the ship.
+- **Credentials.** At a government office, the secretary asks for them, and without them
+  the mission turns into "We've got a problem we have to solve before we can save Kennedy."
+  Steel steals five sets from the State Department on Saturday night.
+- **A name to drop.** Roswell Gilpatric won't talk to a stranger, but sending anyone to see
+  Arthur Sylvester sets a flag, and Czernak gets in by mentioning him: "I quickly mentioned
+  Sylvester's name."
+- **A trap.** Carl Kaysen doesn't trust Bridgette, and has FBI agents stake out Sullivan's
+  and Forrestal's offices. Steel takes them first ("I've got them stashed in the back seat of
+  their car"), and has to hold them until the game has checked on Bridgette, hours after her
+  meeting. Let them go when Steel asks, and Bridgette walks into four FBI agents.
+
+The orders, as the test gives them (Dallas time; the meetings are local time):
+
+| When | Who | Order |
+|---|---|---|
+| Friday morning | Steel | Steal money from a bank in Fort Worth |
+| Saturday | Steel | Steal credentials from the State Department in Washington |
+| Sunday | Bridgette | See Carl Kaysen at his workplace, Tuesday 9 a.m., without the future |
+| Sunday | Stein | See Arthur Sylvester at his home, Monday 7 a.m. |
+| Sunday | Czernak | See Roswell Gilpatric at his home, Monday 8 p.m. |
+| Sunday | Blue | See Nettie Carlson at her Washington hotel, Tuesday 3 p.m. |
+| Monday night | Czernak | On to Adam Yarmolinsky at his home that night, without the future |
+| Tuesday | Czernak | On to John McNaughton, telling him about the future |
+| Tuesday | Bridgette, Steel | Bridgette on to William Sullivan, Wednesday 1 p.m.; Steel to stop the FBI agents at Sullivan's office that morning, non-violently |
+| Tuesday | Blue | On to Abe Lincoln on Thursday evening, with the story of *Profiles in Courage* |
+| Wednesday | Bridgette | On to Theodore Sorensen, telling him about the future |
+| Wednesday | Czernak | On to Robert McNamara, with the Penta-Axial Hypergraph and nuclear first strike |
+| Thursday night | Stein | See Evelyn Lincoln at her Fort Worth hotel, Friday 7 a.m., with "Star Light, Star Bright" |
+
+McNamara's warning comes on Thursday at noon, Sorensen's on Thursday evening, and Evelyn
+Lincoln's on Friday morning at 8:30: "She is going to call Dave Powers to help get you on Air
+Force One to talk with the President. Thank God."
+
+### How the game judges
+
+- **A report is chosen when the order is given.** As far as the play and the code show, the
+  command that ends a stage picks the report then, with the flags as they stand, though it comes back hours later. So Stein can't
+  be sent to Evelyn Lincoln until Blue has met Abe Lincoln. Sent on Monday, for the same Friday
+  morning, he still comes back with "I've got very bad news."
+- **"From the future" is one flag for everyone.** It's set by whichever order was given last,
+  and each new order sets it back to "not said". A stage that tests it can see another agent's
+  answer.
+- **An answer is read as an order, too.** Czernak's stage for McNaughton asks about the future
+  only if it's already been said, and fails if it hasn't. "Yes, and tell him you are from the
+  future", as the answer to whether to meet McNaughton, says it.
+- **An agent's line, while it's open, takes everything you type.** An agent done with a
+  mission keeps calling ("What do you want me to do now?"), and an order meant for another
+  goes to them: "Do you want me to see Evelyn Lincoln instead of William Stein?" The test sends
+  each one home to the ship as they finish.
+
+### Not yet understood
+
+In one run that went wrong, with Blue confused and sent home off the plan, Excavate stopped on
+an exception: the game had reached the DPMI host's code in the BIOS's segment, which a real-mode
+program never calls. Whether the game crashed on its own, or Excavate has a fault there, isn't
+known yet.
+
 ## Still to look at
 
-Playing the game itself, to the three warnings and onto Air Force One; `GOIDAT.SAV`; and the
-"slow adapter" setup.
+What went wrong in that run; `GOIDAT.SAV`; and the "slow adapter" setup.
