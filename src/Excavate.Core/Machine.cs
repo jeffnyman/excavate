@@ -722,6 +722,7 @@ public sealed partial class Machine : ICpuBus
             case 0x1A: ClockService(); break;
             case 0x20: _dos.Terminate(0); break;
             case 0x21: _dos.Call(); break;
+            case DosKeyService: _dos.KeyFromBios(); break;
             case 0x2F: MultiplexService(); break;
             case 0x33: MouseService(); break;
             case 0x67: _ems.Call(); break;

@@ -114,6 +114,27 @@ public sealed class EgaTests : IDisposable
     }
 
     [Fact]
+    public void Mode_0Eh_shows_its_second_page_when_the_BIOS_selects_it()
+    {
+        var machine = Run(
+        [
+            // mode 0Eh, and its page 1: mov ax, 000Eh; int 10h; mov ax, 0501h; int 10h
+            0xB8, 0x0E, 0x00, 0xCD, 0x10, 0xB8, 0x01, 0x05, 0xCD, 0x10,
+
+            // eight white dots at the page's start, 16 KB in: mov ax, 0A000h; mov es, ax;
+            // mov byte [es:4000h], 0FFh
+            0xB8, 0x00, 0xA0, 0x8E, 0xC0, 0x26, 0xC6, 0x06, 0x00, 0x40, 0xFF,
+
+            // mov ax, 4C00h; int 21h
+            0xB8, 0x00, 0x4C, 0xCD, 0x21,
+        ]);
+
+        Assert.Equal(1, machine.Read(0x462));
+        Assert.Equal(0xFF_FFFFu, Pixel(machine, 0, 0));
+        Assert.Equal(0u, Pixel(machine, 8, 0));
+    }
+
+    [Fact]
     public void A_vector_set_to_the_BIOSs_own_IRET_returns()
     {
         var machine = Run(

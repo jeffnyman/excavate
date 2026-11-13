@@ -37,7 +37,7 @@ public sealed partial class Machine
         {
             _ when text => columns == 40 ? 0x800 : 0x1000,
             0x0D => 0x2000,
-            0x10 => 0x8000,
+            0x0F or 0x10 => 0x8000,
             0x12 => 0xA000,
             0x13 => 0xFA00,
             _ => 0x4000,
@@ -102,7 +102,7 @@ public sealed partial class Machine
         Crtc(0x0B, bottom);
     }
 
-    /// <summary>Shows a display page (INT 10h function 05h), in the text modes.</summary>
+    /// <summary>Shows a display page (INT 10h function 05h), in the text modes and the EGA's.</summary>
     private void SelectPage(int page)
     {
         page &= 7;
@@ -430,7 +430,10 @@ public sealed partial class Machine
             }
 
             case 0x05:
-                if (TextMode)
+                // the text modes have pages, and so do the EGA's graphics modes, as many as fit
+                // in its 256 KB: Omnicron Conspiracy draws on mode 0Eh's second, and keeps
+                // patterns for its latches in the first
+                if (TextMode || ReadByte(0x40, 0x49) is 0x0D or 0x0E or 0x0F or 0x10)
                 {
                     SelectPage(Al);
                 }

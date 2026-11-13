@@ -147,7 +147,9 @@ internal static class Games
             Cracks: [new CrackedBytes("SU.EXE", 0xAB9, [0x90, 0x90], [0x75, 0x03])], Documents: PresidentDocuments.Read, Hint: PresidentLogon.Describe),
         new("guilty", "Presumed Guilty", 1989, ["PGMAIN.EXE"], "PGMAIN.EXE", Pc, "starts, shows its menus, messages and DNA analysis, and logs off; not yet played through",
             Documents: GuiltyDocuments.Read),
-        new("omnicron", "The Omnicron Conspiracy", 1989, ["OMNICRON.EXE"], "OMNICRON.EXE", At, Untried),
+        // The Omnicron Conspiracy: its loader, not the OMNICRON.COM eXoDOS adds beside it,
+        // which only sends DOS's keyboard calls to INT 16h, as Excavate's DOS does anyway
+        new("omnicron", "The Omnicron Conspiracy", 1989, ["OMNICRON.EXE"], "OMNICRON.EXE", At, "starts on the MCGA, EGA or CGA, to its first room; not yet played through"),
         new("countdown", "Countdown", 1990, ["COUNT.EXE"], "COUNT.EXE", At, Untried),
         new("orion", "The Orion Conspiracy", 1995, ["ORION.BAT"], "ORION.BAT", Fast, Untried),
     ];

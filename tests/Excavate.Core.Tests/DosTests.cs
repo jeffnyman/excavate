@@ -260,6 +260,75 @@ public sealed class DosTests : IDisposable
     }
 
     [Fact]
+    public void Dos_reads_the_keyboard_through_int_16h_so_a_program_that_hooks_it_answers()
+    {
+        // hook INT 16h with a handler that always has a Z, then ask DOS whether a key is
+        // waiting and for it: no key is pressed, and the Z is the exit code
+        //
+        //   push cs; pop ds; mov dx, handler; mov ax, 2516h; int 21h
+        //   mov ah, 0Bh; int 21h; cmp al, 0FFh; jne fail
+        //   mov ah, 8; int 21h; mov ah, 4Ch; int 21h
+        // fail:
+        //   mov ax, 4C01h; int 21h
+        // handler:
+        //   mov ax, 2C5Ah; or ax, ax; retf 2
+        var machine = Start(
+        [
+            0x0E, 0x1F, 0xBA, 0x1F, 0x00, 0xB8, 0x16, 0x25, 0xCD, 0x21,
+            0xB4, 0x0B, 0xCD, 0x21, 0x3C, 0xFF, 0x75, 0x08,
+            0xB4, 0x08, 0xCD, 0x21, 0xB4, 0x4C, 0xCD, 0x21,
+            0xB8, 0x01, 0x4C, 0xCD, 0x21,
+            0xB8, 0x5A, 0x2C, 0x09, 0xC0, 0xCA, 0x02, 0x00,
+        ]);
+
+        Assert.Equal('Z', machine.ExitCode);
+    }
+
+    [Fact]
+    public void A_program_runs_another_and_carries_on_when_it_ends()
+    {
+        // the child closes standard output, as a C runtime does on its way out, and exits with
+        // the first character of its command tail plus the first byte of the name in its first
+        // file control block, which the parent makes a 1:
+        //   mov ah, 3Eh; mov bx, 1; int 21h; mov al, [82h]; add al, [5Dh]; mov ah, 4Ch; int 21h
+        File.WriteAllBytes(Path.Combine(_game, "CHILD.EXE"), Exe(
+            [0xB4, 0x3E, 0xBB, 0x01, 0x00, 0xCD, 0x21, 0xA0, 0x82, 0x00, 0x02, 0x06, 0x5D, 0x00, 0xB4, 0x4C, 0xCD, 0x21]));
+
+        // the parent gives memory back, runs CHILD.EXE with the tail " Q", gets its exit code,
+        // writes "back" to its own standard output, still open, and exits with the child's code:
+        //   mov ah, 4Ah; mov bx, 2100h; int 21h; jc fail
+        //   push cs; pop ds; push cs; pop es
+        //   mov [tailseg], cs; mov [fcb1seg], cs; mov [fcb2seg], cs
+        //   mov dx, name; mov bx, block; mov ax, 4B00h; int 21h; jc fail
+        //   mov ah, 4Dh; int 21h; push ax
+        //   mov ah, 40h; mov bx, 1; mov cx, 6; mov dx, msg; int 21h; jc fail
+        //   pop ax; mov ah, 4Ch; int 21h
+        // fail:
+        //   mov ax, 4C01h; int 21h
+        // block: no environment of its own, the tail, and two file control blocks
+        var machine = Start(
+        [
+            0xB4, 0x4A, 0xBB, 0x00, 0x21, 0xCD, 0x21, 0x72, 0x36,
+            0x0E, 0x1F, 0x0E, 0x07,
+            0x8C, 0x0E, 0x48, 0x00, 0x8C, 0x0E, 0x4C, 0x00, 0x8C, 0x0E, 0x50, 0x00,
+            0xBA, 0x62, 0x00, 0xBB, 0x44, 0x00, 0xB8, 0x00, 0x4B, 0xCD, 0x21, 0x72, 0x19,
+            0xB4, 0x4D, 0xCD, 0x21, 0x50,
+            0xB4, 0x40, 0xBB, 0x01, 0x00, 0xB9, 0x06, 0x00, 0xBA, 0x6C, 0x00, 0xCD, 0x21, 0x72, 0x05,
+            0x58, 0xB4, 0x4C, 0xCD, 0x21,
+            0xB8, 0x01, 0x4C, 0xCD, 0x21,
+            0x00, 0x00, 0x52, 0x00, 0x00, 0x00, 0x56, 0x00, 0x00, 0x00, 0x56, 0x00, 0x00, 0x00,
+            0x02, 0x20, 0x51, 0x0D,
+            0x00, 0x01, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
+            .. "CHILD.EXE\0"u8,
+            .. "back\r\n"u8,
+        ]);
+
+        Assert.Equal('Q' + 1, machine.ExitCode);
+        Assert.Contains(_log, line => line.StartsWith(@"21/4B run C:\CHILD.EXE", StringComparison.Ordinal));
+        Assert.Contains("console: back", _log);
+    }
+
+    [Fact]
     public void The_bios_reports_the_keyboard_intercept_in_its_configuration()
     {
         // mov ah, 0C0h; int 15h; jc fail; mov al, es:[bx+5]; mov ah, 4Ch; int 21h;

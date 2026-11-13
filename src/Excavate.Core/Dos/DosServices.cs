@@ -140,10 +140,30 @@ internal sealed partial class DosServices(Machine machine, DosDrive drive)
     /// <summary>Loads a program's file, read from wherever it is, with its environment, and readies the processor to run it.</summary>
     private void LoadImage(string dosPath, string program, byte[] image, string arguments)
     {
-        // the environment: variables, then a word of 1 and the program's full path, by which
-        // programs find the folder they were run from
+        ushort environmentSegment = BuildEnvironment(["COMSPEC=C:\\COMMAND.COM", "PATH=C:\\"], dosPath);
+
+        if (image.Length < 0x1C || image[0] != 'M' || image[1] != 'Z')
+        {
+            throw new NotSupportedException($"{program} isn't an MZ executable; .COM programs aren't loaded yet.");
+        }
+
+        string tail = arguments.Length > 0 ? " " + arguments : "";
+        if (!TryLoadExe(image, program, environmentSegment, tail, parent: 0))
+        {
+            throw new InvalidOperationException($"{program} needs more memory than is free.");
+        }
+
+        machine.Trace($"loaded {dosPath} at {_psp:X4}h, {arguments}");
+    }
+
+    /// <summary>
+    /// A program's environment: its variables, then a word of 1 and the program's full path, by
+    /// which programs find the folder they were run from.
+    /// </summary>
+    private ushort BuildEnvironment(IEnumerable<string> variables, string dosPath)
+    {
         var environment = new List<byte>();
-        foreach (var variable in new[] { "COMSPEC=C:\\COMMAND.COM", "PATH=C:\\" })
+        foreach (string variable in variables)
         {
             environment.AddRange(Encoding.ASCII.GetBytes(variable));
             environment.Add(0);
@@ -152,24 +172,23 @@ internal sealed partial class DosServices(Machine machine, DosDrive drive)
         environment.AddRange([0, 1, 0]);
         environment.AddRange(Encoding.ASCII.GetBytes(dosPath));
         environment.Add(0);
-        ushort environmentSegment = Allocate((environment.Count + 15) / 16, 0) ?? throw new InvalidOperationException("No memory for the environment.");
-        machine.WriteBytes(environmentSegment, 0, environment.ToArray());
-
-        if (image.Length < 0x1C || image[0] != 'M' || image[1] != 'Z')
-        {
-            throw new NotSupportedException($"{program} isn't an MZ executable; .COM programs aren't loaded yet.");
-        }
-
-        LoadExe(image, program, environmentSegment, arguments);
-        machine.Trace($"loaded {dosPath} at {_psp:X4}h, {arguments}");
+        ushort segment = Allocate((environment.Count + 15) / 16, 0) ?? throw new InvalidOperationException("No memory for the environment.");
+        machine.WriteBytes(segment, 0, environment.ToArray());
+        return segment;
     }
 
     /// <summary>
     /// Loads an MZ executable. Its header gives the size of the image, the relocations to apply,
     /// the memory it needs beyond the image, and its starting CS:IP and SS:SP, all relative to
-    /// the segment the image lands at, just past the 256-byte program segment prefix.
+    /// the segment the image lands at, just past the 256-byte program segment prefix. False,
+    /// with nothing loaded, when there isn't the memory for it.
     /// </summary>
-    private void LoadExe(byte[] file, string program, ushort environment, string arguments)
+    /// <param name="file">The program's file.</param>
+    /// <param name="program">Its name.</param>
+    /// <param name="environment">Its environment's segment.</param>
+    /// <param name="tail">Its command tail, as the PSP holds it: what followed its name, from the space before the arguments.</param>
+    /// <param name="parent">The PSP of the program that ran it, or 0 for one run by the shell.</param>
+    private bool TryLoadExe(byte[] file, string program, ushort environment, string tail, ushort parent)
     {
         string name = Path.GetFileNameWithoutExtension(program);
         ushort Word(int offset) => BinaryPrimitives.ReadUInt16LittleEndian(file.AsSpan(offset));
@@ -186,7 +205,8 @@ internal sealed partial class DosServices(Machine machine, DosDrive drive)
         int needed = 0x10 + imageParagraphs + minimum;
         if (largest < needed)
         {
-            throw new InvalidOperationException($"The program needs {needed * 16} bytes; {largest * 16} are free.");
+            machine.Trace($"{program} needs {needed * 16} bytes; {largest * 16} are free");
+            return false;
         }
 
         int size = Math.Min(largest, 0x10 + imageParagraphs + maximum);
@@ -208,7 +228,7 @@ internal sealed partial class DosServices(Machine machine, DosDrive drive)
 
         SetOwner(environment, psp, "");
         SetOwner(psp, psp, name);
-        BuildPsp(psp, (ushort)(psp + size), environment, arguments);
+        BuildPsp(psp, (ushort)(psp + size), environment, tail, parent == 0 ? psp : parent);
         _psp = psp;
         _dtaSegment = psp;
         _dtaOffset = 0x80;
@@ -227,13 +247,14 @@ internal sealed partial class DosServices(Machine machine, DosDrive drive)
         cpu.Edi = cpu.Esp;
         cpu.Ebp = 0x091C;
         cpu.Eflags = 0x0202;
+        return true;
     }
 
     /// <summary>
     /// The program segment prefix: the 256 bytes DOS puts before every program, holding how to
     /// exit, how much memory it has, its environment, its file handles and its command line.
     /// </summary>
-    private void BuildPsp(ushort psp, ushort end, ushort environment, string arguments)
+    private void BuildPsp(ushort psp, ushort end, ushort environment, string tail, ushort parent)
     {
         machine.WriteBytes(psp, 0, new byte[0x100]);
         machine.WriteBytes(psp, 0x00, [0xCD, 0x20]);                 // INT 20h, the old way to exit
@@ -245,7 +266,7 @@ internal sealed partial class DosServices(Machine machine, DosDrive drive)
             machine.WriteWord(psp, 0x0C + (4 * i), machine.ReadWord(0, ((0x22 + i) * 4) + 2));
         }
 
-        machine.WriteWord(psp, 0x16, psp);                            // the parent: itself, as for a shell
+        machine.WriteWord(psp, 0x16, parent);                         // the parent: itself, as for a shell, or the program that ran it
         machine.WriteBytes(psp, 0x18, [1, 1, 1, 0, 2, .. Enumerable.Repeat((byte)0xFF, 15)]);
         machine.WriteWord(psp, 0x2C, environment);
         machine.WriteWord(psp, 0x32, 20);                             // the handle table's size and place
@@ -255,22 +276,29 @@ internal sealed partial class DosServices(Machine machine, DosDrive drive)
         machine.WriteBytes(psp, 0x5C, [0, .. Enumerable.Repeat((byte)' ', 11)]);
         machine.WriteBytes(psp, 0x6C, [0, .. Enumerable.Repeat((byte)' ', 11)]);
 
-        string tail = arguments.Length > 0 ? " " + arguments : "";
         tail = tail[..Math.Min(tail.Length, 126)];
         machine.WriteByte(psp, 0x80, (byte)tail.Length);
-        machine.WriteBytes(psp, 0x81, [.. Encoding.ASCII.GetBytes(tail), 0x0D]);
+        machine.WriteBytes(psp, 0x81, [.. Encoding.Latin1.GetBytes(tail), 0x0D]);
     }
 
     /// <summary>
-    /// Ends the program, as DOS does: its files are closed and its memory freed (the next
-    /// program starts the arena afresh). With a batch file running, the machine runs on to its
-    /// next line; otherwise it has ended.
+    /// Ends the program, as DOS does. A program another ran goes back to it (see
+    /// <see cref="ReturnToParent"/>). Otherwise its files are closed and its memory freed (the
+    /// next program starts the arena afresh), and with a batch file running, the machine runs on
+    /// to its next line; without one, it has ended.
     /// </summary>
     public void Terminate(int code)
     {
+        machine.ExitCode = code;
+        if (_parents.Count > 0)
+        {
+            machine.Trace($"exit {code}");
+            ReturnToParent();
+            return;
+        }
+
         FlushConsole();
         CloseProgramFiles();
-        machine.ExitCode = code;
         machine.ProgramEnded();
         machine.Trace($"exit {code}");
         if (_shell?.Running == true)
@@ -491,14 +519,6 @@ internal sealed partial class DosServices(Machine machine, DosDrive drive)
 
     // ---- INT 21h -----------------------------------------------------------------------------
 
-    // the scan code still to come after the zero that DOS gives for a key with no character
-    private byte? _extendedKey;
-
-    // the line being typed for function 0Ah, kept in the program's buffer: its length so far,
-    // and whether one is being typed
-    private int _lineLength;
-    private bool _lineTyping;
-
     private void Ok() => machine.SetReturnCarry(false);
 
     private void Fail(int error)
@@ -515,33 +535,8 @@ internal sealed partial class DosServices(Machine machine, DosDrive drive)
         switch (function)
         {
             case 0x00: Terminate(0); break;
-            case 0x01:
-            case 0x07:
-            case 0x08:
-                ReadKey(echo: function == 0x01);
-                break;
             case 0x02: ConsoleOut((char)cpu.Dl); break;
-            case 0x06:
-                if (cpu.Dl == 0xFF)
-                {
-                    // direct console input: a key if one is waiting, without waiting for one
-                    if (NextKey() is { } key)
-                    {
-                        cpu.Al = key;
-                        machine.SetReturnZero(false);
-                    }
-                    else
-                    {
-                        cpu.Al = 0;
-                        machine.SetReturnZero(true);
-                    }
-                }
-                else
-                {
-                    ConsoleOut((char)cpu.Dl);
-                }
-
-                break;
+            case 0x06 when cpu.Dl != 0xFF: ConsoleOut((char)cpu.Dl); break;
             case 0x09:
                 for (uint i = 0; i < 4096; i++)
                 {
@@ -552,25 +547,6 @@ internal sealed partial class DosServices(Machine machine, DosDrive drive)
                     }
 
                     ConsoleOut(c);
-                }
-
-                break;
-            case 0x0A: ReadLine(); break;
-            case 0x0B:
-                // whether a key is waiting
-                cpu.Al = _extendedKey is not null || machine.FromBuffer(take: false) is not null ? (byte)0xFF : (byte)0;
-                break;
-            case 0x0C:
-                // flush the keyboard, then do the input function in AL
-                _extendedKey = null;
-                while (machine.FromBuffer(take: true) is not null)
-                {
-                }
-
-                if (cpu.Al is 0x01 or 0x06 or 0x07 or 0x08 or 0x0A)
-                {
-                    cpu.Ah = cpu.Al;
-                    Call();
                 }
 
                 break;
@@ -685,8 +661,12 @@ internal sealed partial class DosServices(Machine machine, DosDrive drive)
             case 0x48: AllocateCall(cpu); break;
             case 0x49: FreeCall(cpu); break;
             case 0x4A: ResizeCall(cpu); break;
+            case 0x4B: RunProgram(cpu); break;
             case 0x4C: Terminate(cpu.Al); break;
-            case 0x4D: cpu.Ax = 0; break;
+            case 0x4D:
+                // the exit code of the program it last ran, which ended normally
+                cpu.Ax = (byte)machine.ExitCode;
+                break;
             case 0x50: _psp = cpu.Bx; break;
             case 0x51:
             case 0x62:
@@ -740,7 +720,7 @@ internal sealed partial class DosServices(Machine machine, DosDrive drive)
                 cpu.Al = 0;
                 break;
             default:
-                if (!FileCall(function, cpu))
+                if (!KeyboardCall(function, cpu) && !FileCall(function, cpu))
                 {
                     throw new NotSupportedException($"INT 21h function {function:X2}h (AL={cpu.Al:X2}h) isn't provided.");
                 }
@@ -799,126 +779,6 @@ internal sealed partial class DosServices(Machine machine, DosDrive drive)
             machine.Trace($"21/4A resize {cpu.Es:X4}h to {cpu.Bx * 16} bytes");
             Ok();
         }
-    }
-
-    /// <summary>
-    /// Functions 01h, 07h and 08h: the next key's character, waiting for one. DOS reads through
-    /// the BIOS's buffer; until a key is there, the call repeats, with interrupts able to come
-    /// in, so the key the program waits for can arrive.
-    /// </summary>
-    private void ReadKey(bool echo)
-    {
-        if (NextKey() is not { } key)
-        {
-            machine.RepeatInterrupt();
-            return;
-        }
-
-        _registers.Al = key;
-        if (echo && key != 0)
-        {
-            ConsoleOut((char)key);
-        }
-    }
-
-    /// <summary>
-    /// Function 0Ah, buffered input: a line typed into the buffer at DS:DX, whose first byte is
-    /// the most it holds, Enter's carriage return included. The keys are echoed as they come,
-    /// Backspace takes one back, Escape the whole line, and keys with no character are ignored.
-    /// At Enter, the second byte gets the line's length and the carriage return follows it.
-    /// The call repeats until then, as reading a key does.
-    /// </summary>
-    private void ReadLine()
-    {
-        var cpu = _registers;
-        int room = machine.ReadByte(cpu.Ds, cpu.Dx);
-        if (room == 0)
-        {
-            return;
-        }
-
-        if (!_lineTyping)
-        {
-            _lineTyping = true;
-            _lineLength = 0;
-            machine.Trace($"21/0A read a line, up to {room - 1} characters, into {cpu.Ds:X4}:{cpu.Dx:X4}");
-        }
-
-        while (NextKey() is { } key)
-        {
-            switch (key)
-            {
-                case 0:
-                    // a key with no character: its scan code, which comes next, is dropped
-                    NextKey();
-                    break;
-                case 0x0D:
-                    machine.WriteByte(cpu.Ds, cpu.Dx + 1u, (byte)_lineLength);
-                    machine.WriteByte(cpu.Ds, cpu.Dx + 2u + (uint)_lineLength, 0x0D);
-                    ConsoleOut('\r');
-                    _lineTyping = false;
-                    return;
-                case 0x08:
-                    if (_lineLength > 0)
-                    {
-                        _lineLength--;
-                        ConsoleOut('\b');
-                        ConsoleOut(' ');
-                        ConsoleOut('\b');
-                    }
-
-                    break;
-                case 0x1B:
-                    for (; _lineLength > 0; _lineLength--)
-                    {
-                        ConsoleOut('\b');
-                        ConsoleOut(' ');
-                        ConsoleOut('\b');
-                    }
-
-                    break;
-                default:
-                    // one byte is kept for the carriage return
-                    if (_lineLength < room - 1)
-                    {
-                        machine.WriteByte(cpu.Ds, cpu.Dx + 2u + (uint)_lineLength, key);
-                        _lineLength++;
-                        ConsoleOut((char)key);
-                    }
-
-                    break;
-            }
-        }
-
-        machine.RepeatInterrupt();
-    }
-
-    /// <summary>
-    /// The next character from the keyboard, or null when none is waiting. A key with no
-    /// character (an arrow, a function key) comes as two: a zero, then its scan code at the next
-    /// call, as DOS gives them.
-    /// </summary>
-    private byte? NextKey()
-    {
-        if (_extendedKey is { } scan)
-        {
-            _extendedKey = null;
-            return scan;
-        }
-
-        if (machine.FromBuffer(take: true) is not { } key)
-        {
-            return null;
-        }
-
-        byte character = (byte)key;
-        if (character is 0 or 0xE0)
-        {
-            _extendedKey = (byte)(key >> 8);
-            return 0;
-        }
-
-        return character;
     }
 
     /// <summary>A line on the console, from the shell.</summary>

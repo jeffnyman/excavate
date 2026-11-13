@@ -26,6 +26,15 @@ public sealed partial class Machine
     internal const ushort EmptyTable = 0x05F0;
 
     /// <summary>
+    /// Where DOS's calls that read the keyboard go to call INT 16h: it calls it, then gives
+    /// the answer to <see cref="DosKeyService"/> to finish the call, and returns to the program.
+    /// </summary>
+    internal const ushort DosKeyStub = 0x05F8;
+
+    /// <summary>The service that finishes a DOS call once INT 16h has answered it.</summary>
+    internal const byte DosKeyService = 0xC0;
+
+    /// <summary>
     /// DOS's "list of lists" (INT 21h function 52h), as much of it as programs read: at offset 4,
     /// a pointer to the chain of system file tables, here a single table at <see cref="FileTables"/>.
     /// </summary>
@@ -122,6 +131,13 @@ public sealed partial class Machine
             0xCF,               // iret
         ]);
         SetVector(0x09, BiosSegment, KeyboardHandler);
+
+        WriteRom(bios + DosKeyStub,
+        [
+            0xCD, 0x16,                 // int 16h
+            0x0F, 0xFF, DosKeyService,  // the answer, to DOS's call
+            0xCF,                       // iret
+        ]);
 
         // the system configuration table INT 15h function C0h points at: its length, the model
         // (FCh, an AT) and submodel, the BIOS revision, and the first feature byte: a second

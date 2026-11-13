@@ -297,9 +297,9 @@ internal sealed partial class DosServices
         if (TryFile(cpu, out var file))
         {
             _files.Remove(cpu.Bx);
-            if (!_files.ContainsValue(file))
+            if (!IsOpen(file))
             {
-                // the last handle to it, duplicates included
+                // the last handle to it, duplicates and a waiting parent's included
                 file.Stream?.Dispose();
             }
 

@@ -21,3 +21,6 @@ so that its own program runs as it was shipped.
   a villain cracking that passphrase as the game's clock, an Umbra code and a false one, a
   fast-forward its makers left in, notes they left in its messages, and a byte that goes to a
   port nothing answers.
+- [The Omnicron Conspiracy](omnicron.md): First Star Software, 1989. A loader that keeps the
+  graphics library and runs the game, a game that runs its music player, a keyboard DOS has to
+  read through the game's own INT 16h, and an EGA mode drawn on its second page.

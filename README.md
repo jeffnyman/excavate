@@ -17,7 +17,7 @@ the time. Those notes are in [docs](docs/), a game at a time.
 | *Guardians of Infinity: To Save Kennedy* | 1988 | `kennedy` | Plays through: a week of orders wins it, and its ending runs on Air Force One; [notes](docs/kennedy.md). The slide show is `excavate kennedy KSHOW.EXE` |
 | *The President Is Missing* | 1988 | `president` | Logs on and shows its files, on the EGA or CGA; [notes](docs/president.md). Its setup is `excavate president SU.EXE` |
 | *Presumed Guilty* | 1989 | `guilty` | Starts, shows its menus, messages and DNA analysis on the EGA or CGA, and logs off; [notes](docs/guilty.md). Its setup is `excavate guilty SU.EXE` |
-| *The Omnicron Conspiracy* | 1989 | `omnicron` | Not yet tried |
+| *The Omnicron Conspiracy* | 1989 | `omnicron` | Starts on the MCGA, EGA or CGA, through its loader and its music player, to its first room; [notes](docs/omnicron.md) |
 | *Countdown* | 1990 | `countdown` | Not yet tried |
 | *The Orion Conspiracy* | 1995 | `orion` | Not yet tried |
 
