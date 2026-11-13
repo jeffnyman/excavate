@@ -185,13 +185,65 @@ another after an Enter is marked as one. Some of what's there:
   HA HA HA...."
 - The real estate agency's listings, each with its star coordinate. The asteroid in the Cron
   system, 356972, is sold. A memo gives the Sarbai base's: "asteroid D-892 coordinate 563381".
-  A string of seven six-digit numbers in the data has Cron's 480117 among them, and these two.
+  The game keeps the coordinates it knows as one string of six-digit numbers, these two and
+  Cron's 480117 among them (see [the coordinates](#the-coordinates)).
 - The rejuvenation booth. "You were lucky this time, Boss. Please be more careful. This
   procedure is very unpredictable." When the luck runs out, Ace's genetic structure has been
   permanently altered: "But don't feel too bad. I hear the girls just can't keep their hands off
   of a giant purple artichoke in a Star Police uniform." That's the artichoke among his frames.
 
+## Playing it
+
+Played in Excavate, on the MCGA, from the bedroom to the Blackstar. None of it needed a change
+to Excavate.
+
+### Getting around
+
+Ace walks with the arrow keys and goes through a door by walking into it: it opens as he
+touches it, and he's through on the next step. What he touches is named on the bar above the
+room, and Return then brings up a menu for it: examine, use, search, converse, take.
+
+The game decides what Ace touches with boxes. Each thing in a room has one, and it counts only
+in the direction Ace is facing: walking up, he touches what's just above him, and walking left,
+what's just to his left. That's all there is to the first puzzle, sitting down to fly. The pilot's
+chair on the bridge is two things, its back and its front, and walking up to it only ever finds
+its back: "You must be at the front of the chair in order to sit down." The front's box is
+behind the chair, and the only way to it is the narrow gap between the chair and the console,
+walking up and then turning left. Sitting brings up the ship's menu: set star course, jump to
+hyperspace, check fuel supply.
+
+### To Cron and back
+
+1. **The bridge.** The course is a six-digit coordinate, typed in. The Falcon starts at 910934,
+   and Cron is 480117, from the manual and from P.A.L.
+2. **The transporter room.** Walking onto the grid and using it beams Ace down to the police
+   station on Cron, where Lt. Lazlov Drek meets him ("My friends call me Laz, but you can call
+   me Lt. Drek") and walks him to the dynalift: "OK, Hero. Just take the dynalift to the top
+   floor. The Chief's expecting you."
+3. **The dynalift.** Its panel lists the floors: 1, transporter; 2, payroll; 3, ComCenter; 4,
+   archives; 5, supply; 6, the Chief.
+4. **The receptionist.** The game's text has her ask for Ace's ALSWELL: "Captain Powers, you'll
+   have to leave your weapon on the table before you can enter the Chief's office." Ace put it
+   on her desk on the way in, and searching the desk on the way out gave it back.
+5. **The Chief.** He repeats the manual's briefing and adds where the Blackstar was found:
+   "floating dead in space at star coordinate 711509."
+6. **Back to the Falcon**, by the same transporter, and to 711509. The Falcon's hatch, in its
+   airlock, stays shut, and its script shows why: it opens only once a card key has been used
+   on it. The key is in the night stand in Ace's bedroom, with a DexBoost capsule. Using it on
+   the hatch takes Ace across to the Blackstar.
+7. **The Blackstar.** Its crew are dead in the hallways and the cockpit ("He's been fricasseed
+   by a blaster"), and the cockpit's panel offers what the controls have left: VIEW SHIPS LOG
+   and VIEW SHIPS MANIFEST.
+
+### The coordinates
+
+The coordinates are kept as one string in the data: 356972, 927325, 480117, 563381, 711509,
+910934 and 910934. The last two are where the Falcon is and where it's headed. Setting a
+course changes the last, and arriving changes the other: at the Blackstar both are 711509. The
+others are Cron, 480117; the Sarbai base, 563381, from a memo; and the asteroid the real estate
+agency lists as sold, 356972. 927325 is still to place.
+
 ## Still to look at
 
-The game itself, from the ship to Cron, and what makes it end: which of the seven coordinates
-the ship goes to, and what's at each.
+The rest of the game, from the Blackstar on: Agent 786's droid, Paucert, and where the case
+leads on Cron.
