@@ -147,4 +147,13 @@ public sealed class EgaTests : IDisposable
 
         Assert.Equal(7, machine.ExitCode);
     }
+
+    [Fact]
+    public void Unused_vectors_point_at_the_BIOSs_own_IRET()
+    {
+        // as IBM's BIOS has them: Countdown reads INT 1's offset as data, and divides by its
+        // high byte
+        var machine = Run([0xB8, 0x00, 0x4C, 0xCD, 0x21]);
+        Assert.Equal([0x53, 0xFF, 0x00, 0xF0], Enumerable.Range(4, 4).Select(at => machine.Read((uint)at)).ToArray());
+    }
 }

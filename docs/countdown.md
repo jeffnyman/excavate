@@ -278,6 +278,48 @@ at a time, so a little down and then right gets him there. Around it, the code c
 other USEs the same way, the item and the thing by number, and keeps a flag for each change in
 the cell: the bug caught, the key taken, the screen chipped.
 
+## Through the Sanctuary
+
+The game's rooms are numbered as their pictures are, `ROOM20.PLY` being room 20, and some
+share a file: rooms 11 and 16, two cells, are both drawn from `CELL.CNT`. For each room the
+code has a routine for each action, kept in tables of 52, one entry for each room number: one for
+LOOK, one for OPEN, one for MOVE, one for GET, one for GO TO, and so on. Another routine for
+each room says which of its rectangles can be clicked just then. They know things by their
+rectangle's number, and keep a flag for each change: a door opened, a key taken, a rock moved.
+That's where the puzzles are, and reading them is quicker than guessing.
+
+The ledge is 768 pixels wide and scrolls as Mason walks it. Of its windows, the fourth "HAS
+NOT BEEN LATCHED", and opens into room 16, a cell whose door opens onto the floor's hallway.
+The hallways are maps seen from above, a floor each, with stairs between the floors at their
+top left. Guards walk them, and a guard that comes within 8 pixels of Mason, across and down,
+catches him: "AFTER BEING CAPTURED BY THE HALL GUARDS YOU RECEIVE A LOBOTOMY. YOU SPEND YOUR
+REMAINING YEARS TRYING TO FOCUS ON A SINGLE OBJECT." And the game starts again.
+
+Down the left corridor is room 11, Barney Sacnussen's cell: his self-portrait on the wall, and
+behind it, written on the wall, "AT NIGHT WHILE THEY SLEEP; PASSED THE FIRE AND INTO THE WALL
+I CREEP". Moving the pillow shows a homemade key, "FASHIONED OUT OF SHEET METAL". The stairs
+go down two floors to a landing, room 0, whose one door is locked, and the homemade key opens
+it on the furnace room, room 1. Moving the coal there shows a pick axe, and the pick opens
+the patched hole in the far wall, used from close to it. But going through needs a light:
+"IT'S WAY TOO DARK FOR YOU TO NAVIGATE. YOU WOULD GET LOST." The code gives it to GET in room
+8, behind one of the doors on the floor below the cells.
+
+![The furnace room](images/countdown-furnace.png)
+
+### A sound past the end of the list
+
+On the lower floor the game froze, the first time it was played through there, on a divide by
+zero. Room 10's code picks a sound to play at random, a number from E10h to 2A30h of which
+it means to keep two bits. When those two bits are 0, it jumps past the line that clears the
+rest, and asks for sound 1 plus the random number's low byte: EBh, say, past the end of the
+list. The list's entry there is 0, so the player takes the sound to be at 0000:0000, the start
+of the interrupt table, and its rate from the byte at 0000:0005, the high byte of INT 1's
+offset. It divides by that rate. On an IBM PC, INT 1 and the other vectors no one uses point
+at an IRET the BIOS keeps at F000:FF53, so the byte is FFh, and a sound nobody hears plays
+for a moment. Excavate pointed them at an IRET at F000:0000, so the byte was 0, and the
+division faulted, and returned to itself, over and over. Its vectors now point at F000:FF53, as
+IBM's do.
+
 ## Still to look at
 
 - The animations' kinds, the rest of their 18 bytes, and the word after each item: how the
@@ -285,4 +327,5 @@ the cell: the bug caught, the key taken, the screen chipped.
 - The rest of the puzzles in `COUNT.EXE`, room by room, and how a conversation opens ASK ABOUT
   and OFFER.
 - Which rooms take a `.COL` for all their colors, and where the game picks it.
-- The game itself, from the ledge on.
+- The light in room 8, and the way on from the furnace room.
+- The guards: how they walk, so a test can get Mason past them every time.

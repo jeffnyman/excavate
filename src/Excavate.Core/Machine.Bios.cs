@@ -6,8 +6,11 @@ namespace Excavate.Core;
 // The BIOS: the interrupt table, the BIOS data area, and the BIOS services answered in C#.
 public sealed partial class Machine
 {
-    // the stubs, one per vector, at F000:0100 + 4 * vector; an IRET for the rest at F000:0000
+    // the stubs, one per vector, at F000:0100 + 4 * vector
     private const ushort StubBase = 0x0100;
+
+    // the IRET IBM's BIOSes point unused vectors at, and every compatible BIOS kept there
+    private const ushort DummyReturn = 0xFF53;
 
     // the vectors answered in C#: the BIOS's, DOS's and the mouse driver's (EMS installs its own)
     private static readonly byte[] Services = [0x10, 0x11, 0x12, 0x13, 0x15, 0x16, 0x1A, 0x20, 0x21, 0x2F, 0x33];
@@ -51,11 +54,16 @@ public sealed partial class Machine
     {
         const uint bios = (uint)BiosSegment << 4;
 
-        // every vector starts at an IRET, so an interrupt nothing handles does nothing
-        WriteRom(bios, [0xCF]);
+        // every vector starts at IBM's IRET, so an interrupt nothing handles does nothing.
+        // Programs put a vector back by that address (The President Is Missing sets INT 1Ch to
+        // it), and some read the table as data: Countdown, picking a sound past the end of its
+        // list in a hallway, plays "the sound" at 0000:0000 and takes its rate from the byte at
+        // 0000:0005, the high byte of INT 1's offset. At FF53h that's FFh; at a lower offset it
+        // would be 0, which the game divides by.
+        WriteRom(bios + DummyReturn, [0xCF]);
         for (int vector = 0; vector < 256; vector++)
         {
-            SetVector(vector, BiosSegment, 0x0000);
+            SetVector(vector, BiosSegment, DummyReturn);
         }
 
         foreach (byte vector in Services)
@@ -176,11 +184,6 @@ public sealed partial class Machine
 
         // the model byte at F000:FFFE: FCh, an AT-class machine
         WriteRom(0xF_FFFE, [0xFC]);
-
-        // the IRET at F000:FF53 that IBM's BIOSes point unused vectors at, and every compatible
-        // BIOS kept there: programs put a vector back by that address (The President Is Missing
-        // sets INT 1Ch to it)
-        WriteRom(0xF_FF53, [0xCF]);
 
         // the first half of the character set's 8 by 8 font, where IBM's BIOS has it: games of
         // the CGA's time draw their text from it (Portal does)
