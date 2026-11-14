@@ -135,13 +135,14 @@ python tools/firststar/omnicron_files.py <the game's folder> pictures <folder>
 
 `access/countdown_files.py` reads *Countdown*'s `.CNT` files: the parts packed into them, with
 the names, folders and dates they had on the developers' disks; the text in them; the rooms'
-pictures; the GIF pictures; and the RealSound recordings. How they're packed is in
+pictures; the GIF pictures; the cells and animations; and the RealSound recordings. How they're packed is in
 [docs/countdown.md](../docs/countdown.md#the-files).
 
 ```
 python tools/access/countdown_files.py <the game's folder> parts
 python tools/access/countdown_files.py <the game's folder> text [<file>]
 python tools/access/countdown_files.py <the game's folder> pictures <folder>
+python tools/access/countdown_files.py <the game's folder> cells <folder>
 python tools/access/countdown_files.py <the game's folder> sounds <folder>
 python tools/access/countdown_files.py <the game's folder> room <file>
 python tools/access/countdown_files.py <the game's folder> talk <file>
@@ -152,6 +153,8 @@ python tools/access/countdown_files.py <the game's folder> talk <file>
 - **`text`** prints the text in each part, or in one file's.
 - **`pictures`** writes each room's picture, its whole map, as a PNG file twice its size, and
   the GIF pictures as they are.
+- **`cells`** writes each file of cells, the people and the things that change, and each file of
+  animations, a frame each, as a PNG sheet, in the likeliest palette.
 - **`sounds`** writes each RealSound recording as a WAV file, the share of each sample the
   speaker is on.
 - **`room`** prints a room's things, with the rectangles each can be clicked in, what each action

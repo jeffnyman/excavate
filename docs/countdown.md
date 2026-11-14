@@ -74,8 +74,8 @@ as well.
 ## The files
 
 `tools/access/countdown_files.py` reads them (see [the tools](../tools/README.md)): it lists
-every part of every file, prints their text, and writes the rooms, the pictures and the sounds
-as PNG, GIF and WAV files.
+every part of every file, prints their text, and writes the rooms, the pictures, the cells,
+the animations and the sounds as PNG, GIF and WAV files.
 
 ### The packing
 
@@ -155,6 +155,32 @@ zeros, left over in the memory of the program that wrote them. The samples are t
 themselves: in Excavate, the 32,640 counts the game loaded into the timer for the scream are the
 16,320 samples of `SCREAM5.RS`, each twice, exactly. There are 42 different recordings, among
 them `CRZYLAF`, `LAUGH2`, `SNORE`, six `PARROT`s, `EXPLODE`, `DIEPIG`, `IKNOW` and `LOVEYOU`.
+
+### The cells and the animations
+
+The people, and the things in the rooms that change, are drawn from cells, the developers'
+word, kept in `.GPH` files: 1,065 of them in 90 files. A `.GPH` is a count of its cells and
+where each starts. A cell is its width and height, its size, and then its pixels a row at a
+time: how many to leave at the left, how many follow, and those. A row is one run from its
+first pixel to its last, so color 0 isn't drawn: it's what shows through the gaps, between an
+arm and a body, or a man's legs.
+
+An animation lays cells out frame by frame. A `.ANM` is a count of its animations and where
+each starts. An animation is 18 bytes, the first its kind, then a table of its frames. A frame
+is its place on the screen, a word that's likely how long it's held, and what it draws, 11
+bytes each: the number of the cells' file (14 for `CELLS14.GPH`), the cell, and its place from
+the frame's. A few draw their cell mirrored, by the look of the tiger pit, where the same
+panther walks both ways. All 359 animations in the 43 files read this way. The guard's five
+are his face as he talks, his head and eyes and mouth over his white coat, and his hand coming
+up to his chin. The cell's nine are its moments: the beetle crawling on the wall, a few
+pixels big, which is why it's so hard to see; the guard's face at the door's window; the tray
+coming under the door; the wire and the key; and Mason chipping at the screen with the knife.
+
+`countdown_files.py cells` writes them all as sheets. The rooms' cells are in the room's colors
+below 128 and Mason's or the file's palette above; the faces, the flashbacks and the endings in
+their files' own palettes, or a GIF's.
+
+![Mason walking, the guard's animation as he talks, and the cities on the map Mason travels by](images/countdown-cells.png)
 
 ### The rooms' text
 
@@ -254,7 +280,8 @@ the cell: the bug caught, the key taken, the screen chipped.
 
 ## Still to look at
 
-- The cells (`.GPH`) and the animations (`.ANM`).
+- The animations' kinds, the rest of their 18 bytes, and the word after each item: how the
+  code picks and plays them.
 - The rest of the puzzles in `COUNT.EXE`, room by room, and how a conversation opens ASK ABOUT
   and OFFER.
 - Which rooms take a `.COL` for all their colors, and where the game picks it.

@@ -3,6 +3,7 @@
     python tools/access/countdown_files.py <the game's folder> parts                every part of every file
     python tools/access/countdown_files.py <the game's folder> text [<file>]        the text in them
     python tools/access/countdown_files.py <the game's folder> pictures <folder>    the rooms and pictures, as files
+    python tools/access/countdown_files.py <the game's folder> cells <folder>       the cells and the animations, as sheets
     python tools/access/countdown_files.py <the game's folder> sounds <folder>      the RealSound recordings, as WAV files
     python tools/access/countdown_files.py <the game's folder> room <file>          a room's things, what each action says, and its messages
     python tools/access/countdown_files.py <the game's folder> talk <file>          a conversation, by approach, and the answers to ASK ABOUT
@@ -201,22 +202,27 @@ def likeliest(width: int, pixels: list[int], own: list[tuple[int, int, int]], ot
     for other in others:
         full = [color(other.data, 3 * i) for i in range(256)]
         candidates += [own[:ROOM_COLORS] + full[ROOM_COLORS:], full]
+    return min(candidates, key=lambda palette: roughness(width, pixels, palette, 7))
 
-    def roughness(palette: list[tuple[int, int, int]]) -> float:
-        # how far neighbors are apart, against how far the picture's colors spread: a palette
-        # that's all dark is smooth too, but has no spread
-        near, levels = 0, []
-        for at in range(0, len(pixels) - 1, 7):
-            a = palette[pixels[at]]
-            levels.append(sum(a))
-            if (at + 1) % width:
-                b = palette[pixels[at + 1]]
-                near += abs(a[0] - b[0]) + abs(a[1] - b[1]) + abs(a[2] - b[2])
-        mean = sum(levels) / len(levels)
-        spread = (sum((level - mean) ** 2 for level in levels) / len(levels)) ** 0.5
-        return (near / len(levels) + 10) / (spread + 1)
 
-    return min(candidates, key=roughness)
+def roughness(width: int, pixels: list[int], palette: list[tuple[int, int, int]], step: int = 1) -> float:
+    """How far a picture's neighboring pixels are apart in a palette, against how far its colors
+    spread (a palette that's all dark is smooth too, but has no spread), from every step'th
+    pixel. Pixels past the palette, nothing drawn, don't count."""
+    near, levels = 0, []
+    for at in range(0, len(pixels) - 1, step):
+        if pixels[at] >= len(palette):
+            continue
+        a = palette[pixels[at]]
+        levels.append(sum(a))
+        if (at + 1) % width and pixels[at + 1] < len(palette):
+            b = palette[pixels[at + 1]]
+            near += abs(a[0] - b[0]) + abs(a[1] - b[1]) + abs(a[2] - b[2])
+    if not levels:
+        return 0
+    mean = sum(levels) / len(levels)
+    spread = (sum((level - mean) ** 2 for level in levels) / len(levels)) ** 0.5
+    return (near / len(levels) + 10) / (spread + 1)
 
 
 def png(path: str, width: int, height: int, pixels: list[int], palette: list[tuple[int, int, int]], scale: int = 2) -> None:
@@ -251,6 +257,157 @@ def write_pictures(folder: str, out: str) -> None:
                     file.write(part.data)
                 written += 1
     print(f"Wrote {written} pictures to {out}.")
+
+
+# --- the cells and the animations ---------------------------------------------------------
+
+# past the palette: where a cell draws nothing, and the space between cells on a sheet, drawn in
+# a dark gray
+NOTHING, SPACE = 256, (40, 40, 48)
+
+Cell = tuple[int, int, list[int]]
+
+
+def cells(data: bytes) -> list[Cell]:
+    """A file of cells (.GPH), the pictures the people and changing things are drawn from: a
+    count of cells, then where each starts, a doubleword from the file's start. A cell is its
+    width and height, its size in bytes, these 6 counted, and then a row at a time: how many
+    pixels to leave at the left, how many follow, and those. Color 0 isn't drawn: a row is one run
+    from its first pixel to its last, and color 0 is what shows through the gaps."""
+    count = struct.unpack_from("<H", data, 0)[0]
+    found = []
+    for start in struct.unpack_from(f"<{count}I", data, 2):
+        width, height = struct.unpack_from("<HH", data, start)
+        pixels = [NOTHING] * (width * height)
+        at = start + 6
+        for row in range(height):
+            left, run = data[at], data[at + 1]
+            pixels[row * width + left:row * width + left + run] = [value or NOTHING for value in data[at + 2:at + 2 + run]]
+            at += 2 + run
+        found.append((width, height, pixels))
+    return found
+
+
+Item = tuple[bool, int, int, int, int]
+Frame = tuple[int, list[Item]]
+
+
+def animations(data: bytes) -> list[tuple[int, list[Frame]]]:
+    """A file of animations (.ANM): a count, then where each starts, a doubleword from the file's
+    start. An animation starts with 18 bytes, of which we read only the first, its kind (0, 1, 2,
+    3 or 7); then where each of its frames starts, a word from the animation's start, and a 0.
+    A frame is a 1, its place across and down, and a word that's 60 for the guard's first frame
+    and 0 for most, likely how long it's held; then what it draws, 11 bytes each, and a 0. Each
+    is where it is itself (counted from 2 bytes into the animation, as the editor kept it), a 1,
+    or a 3 for a cell drawn mirrored, the number of the cells' file (14 for CELLS14.GPH), the
+    cell, its place from the frame's, and a word we haven't read."""
+    count = struct.unpack_from("<H", data, 0)[0]
+    found = []
+    for start in struct.unpack_from(f"<{count}I", data, 2):
+        offsets, at = [], start + 18
+        while offset := struct.unpack_from("<H", data, at)[0]:
+            offsets.append(offset)
+            at += 2
+        frames = []
+        for offset in offsets:
+            _, across, down, held = struct.unpack_from("<BhhH", data, start + offset)
+            items, at = [], start + offset + 7
+            while struct.unpack_from("<H", data, at)[0]:
+                _, mirrored, number, cell, x, y = struct.unpack_from("<HBBBhh", data, at)
+                items.append((mirrored == 3, number, cell, across + x, down + y))
+                at += 11
+            frames.append((held, items))
+        found.append((data[start], frames))
+    return found
+
+
+def frame_picture(items: list[Item], files: dict[int, list[Cell]]) -> Cell | None:
+    """A frame drawn from its cells, as small as it fits in."""
+    drawn = [(mirrored, x, y, files[number][cell]) for mirrored, number, cell, x, y in items
+             if number in files and cell < len(files[number])]
+    if not drawn:
+        return None
+    left, top = min(x for _, x, _, _ in drawn), min(y for _, _, y, _ in drawn)
+    width = max(x + cell[0] for _, x, _, cell in drawn) - left
+    height = max(y + cell[1] for _, _, y, cell in drawn) - top
+    pixels = [NOTHING] * (width * height)
+    for mirrored, x, y, (cell_width, cell_height, cell_pixels) in drawn:
+        for row in range(cell_height):
+            for column in range(cell_width):
+                value = cell_pixels[row * cell_width + (cell_width - 1 - column if mirrored else column)]
+                if value != NOTHING:
+                    pixels[(y - top + row) * width + x - left + column] = value
+    return width, height, pixels
+
+
+def sheet(pictures: list[Cell], most: int = 640, gap: int = 2) -> Cell:
+    """Pictures laid out in rows, left to right, no wider than most where they fit."""
+    x = y = tallest = 0
+    places = []
+    for width, height, _ in pictures:
+        if x and x + width > most:
+            x, y, tallest = 0, y + tallest + gap, 0
+        places.append((x, y))
+        x += width + gap
+        tallest = max(tallest, height)
+    sheet_width = max(px + width for (px, _), (width, _, _) in zip(places, pictures))
+    sheet_height = y + tallest
+    pixels = [NOTHING] * (sheet_width * sheet_height)
+    for (px, py), (width, height, picture) in zip(places, pictures):
+        for row in range(height):
+            pixels[(py + row) * sheet_width + px:(py + row) * sheet_width + px + width] = picture[row * width:(row + 1) * width]
+    return sheet_width, sheet_height, pixels
+
+
+def palettes(file_parts: list[Part]) -> list[tuple[str, list[tuple[int, int, int]]]]:
+    """A file's palettes: its .COLs and bare palettes, and its GIF pictures' colors."""
+    found = []
+    for part in file_parts:
+        if kind(part) in ("COL", "palette") and len(part.data) >= 768:
+            found.append((part.name or f"palette {part.number}", [color(part.data, 3 * i) for i in range(256)]))
+        elif kind(part) == "GIF" and part.data[10] & 0x80:
+            size = 2 << (part.data[10] & 7)
+            table = [tuple(part.data[13 + 3 * i:16 + 3 * i]) for i in range(size)]
+            found.append((f"GIF {part.number}", [(r, g, b) for r, g, b in table] + [(0, 0, 0)] * (256 - size)))
+    return found
+
+
+def write_cells(folder: str, out: str) -> None:
+    """Every file of cells, and every file of animations, a frame each, as sheets. A room's are in
+    its own colors below 128, with one of its file's palettes or Mason's above; the rest, the
+    people's faces, the flashbacks, the endings, in a palette of their file's, or a GIF's beside
+    them. Which is the likeliest, as for the rooms."""
+    os.makedirs(out, exist_ok=True)
+    files: dict[int, list[Cell]] = {}
+    for name in cnt_files(folder):
+        for part in parts(folder, name):
+            if kind(part) == "GPH" and part.name.startswith("CELLS"):
+                files.setdefault(int(part.name[5:7]), cells(part.data))
+    title = palettes(parts(folder, "TITLE.CNT"))
+    written = 0
+    for name in cnt_files(folder):
+        file_parts = parts(folder, name)
+        own = [color(part.data, 16 + 3 * i) for part in file_parts if kind(part) == "PLY" for i in range(ROOM_COLORS)][:ROOM_COLORS]
+        theirs = palettes(file_parts)
+        if own:
+            candidates = [own + full[ROOM_COLORS:] for named, full in theirs + title if not named.startswith("GIF")]
+        else:
+            candidates = [full for _, full in theirs or title]
+        for part in file_parts:
+            if kind(part) == "GPH":
+                pictures = cells(part.data)
+            elif kind(part) == "ANM":
+                pictures = [picture for _, frames in animations(part.data) for _, items in frames
+                            if (picture := frame_picture(items, files))]
+            else:
+                continue
+            if not pictures:
+                continue
+            width, height, pixels = sheet(pictures, 1200 if kind(part) == "ANM" else 640)
+            palette = min(candidates, key=lambda palette: roughness(width, pixels, palette)) + [SPACE]
+            png(os.path.join(out, f"{name[:-4].lower()}-{part.name.lower().replace('.', '-')}.png"), width, height, pixels, palette, 1)
+            written += 1
+    print(f"Wrote {written} sheets to {out}.")
 
 
 # --- the rooms' text --------------------------------------------------------------------
@@ -469,6 +626,8 @@ def main(arguments: list[str]) -> None:
         list_text(arguments[0], arguments[2] if len(arguments) >= 3 else None)
     elif len(arguments) >= 3 and arguments[1] == "pictures":
         write_pictures(arguments[0], arguments[2])
+    elif len(arguments) >= 3 and arguments[1] == "cells":
+        write_cells(arguments[0], arguments[2])
     elif len(arguments) >= 3 and arguments[1] == "sounds":
         write_sounds(arguments[0], arguments[2])
     elif len(arguments) >= 3 and arguments[1] == "room":
