@@ -310,8 +310,8 @@ A thing's record points at two scripts. One runs every frame while the thing is 
 Ace is in: a door opening as he comes near. The other runs when Ace touches the thing and
 presses Return, or uses it from a pocket, and it usually starts with the thing's menu, its
 examine text and where USE goes. The characters who move and talk by themselves, 63 of them,
-have a third, their behaviour, listed in a table of their own: P.A.L., Drek, the guards, the
-Ungars, Quattro. A behaviour runs a step a frame. Walking to a place or through a door takes
+have a third, their behavior, listed in a table of their own: P.A.L., Drek, the guards, the
+Ungars, Quattro. A behavior runs a step a frame. Walking to a place or through a door takes
 as many frames as the walk does, and `count` and `loop` make it wait.
 
 The opcodes come in a handful of kinds:

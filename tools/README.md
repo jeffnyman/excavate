@@ -122,7 +122,7 @@ python tools/firststar/omnicron_files.py <the game's folder> pictures <folder>
   what Ace carries.
 - **`scripts`** disassembles what the things do: for each thing, or each whose name matches,
   the script that runs every frame, the one that runs when it's used, and a character's
-  behaviour, with the messages, menus and names they refer to written out. How the language
+  behavior, with the messages, menus and names they refer to written out. How the language
   works is in [docs/omnicron.md](../docs/omnicron.md#the-scripts).
 - **`messages`** prints the game's text in the order it's kept, with "(Enter)" where a message
   goes on after an Enter.
@@ -154,8 +154,10 @@ python tools/access/countdown_files.py <the game's folder> talk <file>
   the GIF pictures as they are.
 - **`sounds`** writes each RealSound recording as a WAV file, the share of each sample the
   speaker is on.
-- **`room`** prints a room's things, what each action says about each, and the room's numbered
-  messages, from a file's `.DAT` (`MASONCEL` for the cell).
-- **`talk`** prints a conversation from a file's `.TRE` (`LISA`, `AGENT`): its records under the
-  approach they start with, each with Mason's line, the answer, the face and the byte the game
-  acts on; then the answers to ASK ABOUT, by topic.
+- **`room`** prints a room's things, with the rectangles each can be clicked in, what each action
+  says about each, and the room's numbered messages, from a file's `.DAT` and `.PLY`
+  (`MASONCEL` for the cell).
+- **`talk`** prints a conversation from a file's `.TRE` (`GUARD`, `LISA`): each record under the
+  approaches that lead to it, with what it does (the topic it adds to ASK ABOUT, or that it ends
+  the line of questioning or the talk), Mason's line and the answer; then the answers to ASK
+  ABOUT, by topic.

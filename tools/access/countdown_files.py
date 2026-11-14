@@ -137,10 +137,13 @@ def list_text(folder: str, only: str | None) -> None:
 
 # A room's picture (.PLY) is made of tiles, 16 by 16, laid out by a map. It starts with its
 # map's width and height in tiles and the number of tiles, then the size of the window it's seen
-# through (15 or 16 tiles by 8), and more we don't read yet, in 16 bytes; then its palette, colors
-# 0 to 127, three 6-bit levels each; then its tiles, row by row, from byte 400; then the map, a
-# byte for each place, the number of its tile. What follows the map we don't read yet. The colors
-# above 127 are for the people and the screen's frame, which have palettes of their own.
+# through (15 or 16 tiles by 8), then two words: the number of lines that edge the floor, and
+# the number of rectangles that can be clicked on. Then its palette, colors 0 to 127, three 6-bit
+# levels each; then its tiles, row by row, from byte 400; then the map, a byte for each place,
+# the number of its tile. After the map come the lines and then the rectangles, each as four
+# arrays of words: the lines' first x, first y, second x and second y, and the rectangles' left,
+# top, right and bottom. The colors above 127 are for the people and the screen's frame, which
+# have palettes of their own.
 TILES_AT, ROOM_COLORS, TILE = 400, 128, 16
 
 
@@ -166,10 +169,32 @@ def room(data: bytes) -> tuple[int, int, list[int], list[tuple[int, int, int]]]:
     return width, height, pixels, palette
 
 
+Shape = tuple[int, int, int, int]
+
+
+def shapes(data: bytes) -> tuple[list[Shape], list[Shape]]:
+    """A room's lines and rectangles, from after its map. The lines edge the floor: Mason can't
+    walk across them. The rectangles are where things can be clicked on, one for each entry in
+    the table of the room's .DAT, so a thing can have more than one. Both are in the room's own
+    pixels; the screen shows the room's window centered across, and from the line under the score."""
+    columns, rows, count = data[0], data[1], data[2]
+    lines, rectangles = struct.unpack_from("<HH", data, 6)
+    at = TILES_AT + count * TILE * TILE + columns * rows
+
+    def arrays(n: int) -> list[Shape]:
+        nonlocal at
+        values = struct.unpack_from(f"<{4 * n}H", data, at)
+        at += 8 * n
+        return [(values[i], values[n + i], values[2 * n + i], values[3 * n + i]) for i in range(n)]
+
+    return arrays(lines), arrays(rectangles)
+
+
 def likeliest(width: int, pixels: list[int], own: list[tuple[int, int, int]], others: list[Part]) -> list[tuple[int, int, int]]:
-    """Which palette a room is shown in isn't in its picture, and we haven't found where the game
-    keeps it. Most rooms use their own colors 0 to 127, with the people's palette (.COL) above;
-    a few use a .COL for everything. This picks the one the picture looks smoothest in: a wrong
+    """Which palette a room is shown in isn't in its picture. Most rooms use their own colors 0 to
+    127, with Mason's palette above, which the game picks for the scene (MAN.COL in his cell,
+    WALL.COL on the ledge outside, both in TITLE.CNT); a few use a .COL for everything, which we
+    haven't seen the game pick yet. This picks the one the picture looks smoothest in: a wrong
     palette shows as speckle, neighboring pixels far apart in color for how far the picture's
     colors spread."""
     candidates: list[list[tuple[int, int, int]]] = [own]
@@ -238,20 +263,24 @@ def zero_ended(data: bytes, at: int) -> tuple[str, int]:
     return data[at:end].decode("latin-1"), end + 1
 
 
-def room_text(data: bytes) -> tuple[list[tuple[str, bool, list[tuple[str, str]]]], list[str]]:
-    """A room's things and its messages (.DAT). It starts with a word, where the messages
-    start, and a table of where each thing in the room starts. A thing is its name, then for each
-    action that has something to say, the action's number in the bar (0 for LOOK to 8 for
-    TRAVEL) and the text, and FFh to end. Some things follow another without being in the table,
-    things to be found there: they're marked. The messages are what the room's puzzles say, which
-    the game's code picks by number."""
+Thing = tuple[str, list[tuple[str, str]]]
+
+
+def room_text(data: bytes) -> tuple[list[Thing], list[int], list[str]]:
+    """A room's things, its table and its messages (.DAT). It starts with a word, where the
+    messages start, and the table: where each thing starts, in the order of the rectangles in
+    the room's picture, so a thing with more than one rectangle is in it more than once. A thing is
+    its name, then for each action that has something to say, the action's number in the bar (0
+    for LOOK to 8 for TRAVEL) and the text, and FFh to end. The table here is each rectangle's
+    thing, by its number. The messages are what the room's puzzles say, which the game's code
+    picks by number; whether a thing is there at all is in the code too."""
     messages_at = struct.unpack_from("<H", data, 0)[0]
     first = struct.unpack_from("<H", data, 2)[0]
-    listed = set(struct.unpack_from(f"<{(first - 2) // 2}H", data, 2))
-    found = []
+    starts = struct.unpack_from(f"<{(first - 2) // 2}H", data, 2)
+    found, numbers = [], {}
     at = first
     while at < messages_at:
-        start = at
+        numbers[at] = len(found)
         name, at = zero_ended(data, at)
         entries = []
         while at < messages_at and data[at] != 0xFF:
@@ -259,20 +288,27 @@ def room_text(data: bytes) -> tuple[list[tuple[str, bool, list[tuple[str, str]]]
             text, at = zero_ended(data, at + 1)
             entries.append((ACTIONS[action] if action < len(ACTIONS) else f"({action})", text))
         at += 1
-        found.append((name, start in listed, entries))
+        found.append((name, entries))
     messages = [message.decode("latin-1") for message in data[messages_at:].split(b"\0")]
     if messages and messages[-1] == "":
         messages.pop()
-    return found, messages
+    return found, [numbers.get(start, -1) for start in starts], messages
 
 
 def list_room(folder: str, name: str) -> None:
-    for part in parts(folder, name if name.upper().endswith(".CNT") else name + ".CNT"):
+    room_parts = parts(folder, name if name.upper().endswith(".CNT") else name + ".CNT")
+    lines, rectangles = [], []
+    for part in room_parts:
+        if kind(part) == "PLY":
+            lines, rectangles = shapes(part.data)
+    for part in room_parts:
         if kind(part) != "DAT":
             continue
-        things_, messages = room_text(part.data)
-        for thing, listed, entries in things_:
-            print(thing + ("" if listed else "  (not in the room's table: found there)"))
+        things_, table, messages = room_text(part.data)
+        print(f"{len(lines)} lines edge the floor; {len(rectangles)} rectangles can be clicked on")
+        for number, (thing, entries) in enumerate(things_):
+            where = [rectangles[i] for i, owner in enumerate(table) if owner == number and i < len(rectangles)]
+            print(thing + ("  " + " ".join(f"({x1},{y1})-({x2},{y2})" for x1, y1, x2, y2 in where) if where else "  (no rectangle)"))
             for action, text in entries:
                 print(f"    {action:6} {text}")
         print("Messages")
@@ -293,19 +329,28 @@ SECTION, RECORD = 0x2C0, 8
 LINES_AT = 4 * SECTION
 
 
-def conversation(data: bytes) -> tuple[list[list[tuple[int, int, int, int]]], list[str], list[str], list[tuple[int, int, str]]]:
+Record = tuple[int, int, int, list[int]]
+
+
+def conversation(data: bytes) -> tuple[list[list[Record]], list[str], list[str], list[tuple[int, int, str]]]:
     """A conversation (.TRE): four sections of 88 records, one for each approach Mason starts
     with, then three blocks, each a word for its size and then its text: what Mason says, what
-    he's told, and the answers to ASK ABOUT. A record is 8 bytes: Mason's line, the answer, the
-    face the person makes (0 to 3), and a byte the game acts on, which we haven't read the code
-    for; the rest is left over from an editor, and so are the records whose face isn't 0 to 3.
-    An answer to ASK ABOUT is the topic's number, from 0 for ACCIDENT, the face, and the text."""
+    he's told, and the answers to ASK ABOUT. A section is a tree four approaches deep, 88 being
+    4 + 4 + 16 + 64 (see path). A record is 8 bytes: Mason's line, the answer, the face the person
+    makes (0 to 3), then the commands, up to a dot; the rest is left over from an editor, and so
+    are the records whose face isn't 0 to 3. An answer to ASK ABOUT is the topic's number, from 0
+    for ACCIDENT, the face, and the text."""
     sections = []
     for section in range(4):
         records = []
         for number in range(SECTION // RECORD):
             record = data[section * SECTION + number * RECORD:section * SECTION + (number + 1) * RECORD]
-            records.append((record[0], record[1], record[2], record[3]))
+            commands = []
+            for byte in record[3:]:
+                if byte == 0x2E:
+                    break
+                commands.append(byte)
+            records.append((record[0], record[1], record[2], commands))
         sections.append(records)
     blocks, at = [], LINES_AT
     for _ in range(3):
@@ -322,17 +367,59 @@ def conversation(data: bytes) -> tuple[list[list[tuple[int, int, int, int]]], li
     return sections, said, told, answers
 
 
+def path(section: int, number: int) -> list[int] | None:
+    """The approaches that lead to a record, as numbers (0 HELP, 1 HASSLE, 2 PLEASANT, 3 BLUFF):
+    the first is the section's; the second picks one of records 4 to 7, the third one of 8 to
+    23 (four for each second), the fourth one of 24 to 87. Records 0 to 3 other than the
+    section's own are copies, which aren't reached."""
+    if number < 4:
+        return [section] if number == section else None
+    if number < 8:
+        return [section, number - 4]
+    if number < 24:
+        return [section, (number - 8) // 4, (number - 8) % 4]
+    return [section, (number - 24) // 16, (number - 24) // 4 % 4, (number - 24) % 4]
+
+
+def commands_text(commands: list[int]) -> str:
+    """What a record's commands do: 02 and a topic's number adds the topic to ASK ABOUT, 05 and
+    two bytes we haven't read kills Mason, 08 ends the talk, and 0B ends that line of
+    questioning ("I DON'T KNOW MUCH MORE ALONG THESE LINES. TRY A NEW APPROACH.")."""
+    said, at = [], 0
+    while at < len(commands):
+        command = commands[at]
+        if command == 0x02 and at + 1 < len(commands):
+            topic = commands[at + 1]
+            said.append(f"adds {TOPICS[topic] if topic < len(TOPICS) else topic}")
+            at += 2
+        elif command == 0x05:
+            said.append("kills Mason" + (f" ({' '.join(f'{b:02X}' for b in commands[at + 1:at + 3])})" if at + 1 < len(commands) else ""))
+            at += 3
+        elif command == 0x08:
+            said.append("ends the talk")
+            at += 1
+        elif command == 0x0B:
+            said.append("ends the line")
+            at += 1
+        else:
+            said.append(f"{command:02X}h")
+            at += 1
+    return ", ".join(said)
+
+
 def list_talk(folder: str, name: str) -> None:
     for part in parts(folder, name if name.upper().endswith(".CNT") else name + ".CNT"):
         if kind(part) != "TRE":
             continue
         sections, said, told, answers = conversation(part.data)
-        for approach, records in zip(APPROACHES, sections):
-            print(f"Starting with {approach}")
-            for number, (line, answer, face, act) in enumerate(records):
-                if face > 3 or line >= len(said) or answer >= len(told):
+        for section, records in enumerate(sections):
+            print(f"Starting with {APPROACHES[section]}")
+            for number, (line, answer, face, commands) in enumerate(records):
+                approaches = path(section, number)
+                if approaches is None or face > 3 or line >= len(said) or answer >= len(told):
                     continue
-                print(f"    {number:2}  face {face}, {act:02X}h")
+                done = commands_text(commands)
+                print(f"    {number:2}  {' '.join(APPROACHES[a] for a in approaches)}  (face {face}{', ' + done if done else ''})")
                 print(f"        MASON: {said[line]}")
                 print(f"        {told[answer]}")
         print("Asked about")

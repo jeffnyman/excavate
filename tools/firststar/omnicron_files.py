@@ -378,7 +378,7 @@ def things(folder: str) -> None:
 # two scripts: at 0Ah, one that runs every frame while the thing is in the room Ace is in (a
 # door's opening and closing), and at 0Ch, one that runs when Ace touches it and presses Return,
 # or uses it from his pocket, and that usually starts with its menu. The characters who move and
-# talk by themselves have a third, their behaviour, which runs a step at a time: they're listed
+# talk by themselves have a third, their behavior, which runs a step at a time: they're listed
 # in a table of 63 entries of 1Bh bytes, each with the character at 1 and where its script is
 # at 7.
 RUNNING, RUNNING_COUNT, RUNNING_SIZE = 0x5F86, 0x3F, 0x1B
@@ -420,7 +420,7 @@ class Scripts:
     def __init__(self, folder: str):
         self.data = code(folder)[DATA:]
         self.rooms = rooms(folder)
-        self.behaviour = {self.word(RUNNING + k * RUNNING_SIZE + 1): self.word(RUNNING + k * RUNNING_SIZE + 7)
+        self.behavior = {self.word(RUNNING + k * RUNNING_SIZE + 1): self.word(RUNNING + k * RUNNING_SIZE + 7)
                           for k in range(RUNNING_COUNT)}
 
     def word(self, at: int) -> int:
@@ -445,7 +445,7 @@ class Scripts:
     def things(self) -> list[int]:
         """Every thing: what the rooms and Ace hold, and what those hold, the rooms' doors, and
         the characters."""
-        todo = [self.word(at + 4) for at in self.rooms] + [self.word(ACE + 4)] + list(self.behaviour)
+        todo = [self.word(at + 4) for at in self.rooms] + [self.word(ACE + 4)] + list(self.behavior)
         todo += [self.word(at + 0x0A + 2 * k) for at in self.rooms for k in range(3)]
         found: set[int] = set()
         while todo:
@@ -461,8 +461,8 @@ class Scripts:
         for field, kind in ((0x0A, "every frame"), (0x0C, "when used")):
             if self.word(thing + field):
                 found[kind] = self.word(thing + field)
-        if thing in self.behaviour:
-            found["behaviour"] = self.behaviour[thing]
+        if thing in self.behavior:
+            found["behavior"] = self.behavior[thing]
         return found
 
     def speech(self, at: int) -> str | None:

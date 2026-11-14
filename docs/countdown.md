@@ -109,22 +109,35 @@ club's picture), which is, by chance or not, the date the game's own clock runs 
 
 ### The rooms
 
-A room's picture is made of tiles, 16 by 16, laid out by a map: its width and height in tiles,
-the number of tiles, and the window it's seen through, in its first 16 bytes; then its palette,
-colors 0 to 127; the tiles from byte 400; and the map, a byte for each place, the number of its
-tile. The colors above 127 belong to the people and the screen's frame. A room can be bigger
-than its window: the cargo hold is 60 tiles wide and scrolls, the cliff 33 tiles high, and some
-rooms are maps seen from above, the alley's streets, the hallways and a maze.
+A room's picture is made of tiles, 16 by 16, laid out by a map. Its first 16 bytes give its
+width and height in tiles, the number of tiles, the window it's seen through, and two counts.
+Then come its palette (colors 0 to 127), the tiles from byte 400, and the map, a byte for each
+place, the number of its tile. The colors above 127 belong to the people and the screen's
+frame. A room can be bigger than its window: the cargo hold is 60 tiles wide and scrolls, the
+cliff 33 tiles high, and some rooms are maps seen from above, the alley's streets, the hallways
+and a maze.
 
 ![Six rooms: the bar, the Golden Desire club, the gear room, the castle's cellar, a room of crated art, and Mason's apartment](images/countdown-rooms.png)
 
 ![The alley, from above](images/countdown-alley.png)
 
-Which palette a room is shown in isn't in its picture, and we haven't found where the game keeps
-it: most use their own colors, with a `.COL` for the people above them, but a few, the bar
-among them, use a `.COL` for all 256. The tool picks the palette the picture looks smoothest in.
-One room, McBain's apartment, comes out dark either way. And after the map there's more, a few
-hundred bytes we don't read yet.
+Which palette a room is shown in isn't in its picture. In the game, the cell is shown in its
+own colors, with `MAN.COL`, Mason's palette, above them. The ledge outside uses its own colors
+too, with `WALL.COL` for Mason, a second palette for him in the same file, `TITLE.CNT`. So the
+game picks Mason's colors for each scene. The game itself draws the score, the date and the
+action bar, in colors 1 to 4 and 7. But a few rooms, the bar among them, look right only in a
+`.COL` for all 256 colors, and we haven't been there in the game yet. The tool picks the
+palette the picture looks smoothest in. One room, McBain's apartment, comes out dark either way.
+
+After the map come the two things the counts in the header count: lines and rectangles, each
+four words. The lines edge the floor, and Mason can't walk across them: the cell has 12. The
+rectangles are where things can be clicked, one for each entry in the table of the room's
+`.DAT`, in the same order. So a thing can be clicked in more than one place: the doctor's
+office has four rectangles for its file drawers and five for its books. They're in the room's
+own pixels, and the screen shows the room's window centered across it, from the line under
+the score.
+
+![Mason's cell, with the lines the floor ends at in red and the rectangles of its things in green](images/countdown-shapes.png)
 
 ### The pictures
 
@@ -145,9 +158,10 @@ them `CRZYLAF`, `LAUGH2`, `SNORE`, six `PARROT`s, `EXPLODE`, `DIEPIG`, `IKNOW` a
 
 ### The rooms' text
 
-A room's `.DAT` is a table of the things in it, each with its name and what each action says
-about it: the action's place in the bar (0 for LOOK, 1 OPEN, 2 MOVE, 3 GET, 5 GO TO, 6 TALK, 7
-TASTE) and the text. USE, 4, is in none of them. The cell, for one:
+A room's `.DAT` is the room's things, each with its name and what each action says about it:
+the action's place in the bar (0 for LOOK, 1 OPEN, 2 MOVE, 3 GET, 5 GO TO, 6 TALK, 7 TASTE)
+and the text. USE, 4, is in none of them. Its table has one entry for each rectangle in the
+room's picture. The cell, for one:
 
 | Thing | Action | Text |
 |---|---|---|
@@ -157,26 +171,43 @@ TASTE) and the text. USE, 4, is in none of them. The cell, for one:
 | Food | TALK | YOU SAY SOMETHING TO THE FOOD AND FOR A MOMENT YOU THINK YOU HEAR A RESPONSE. |
 | Writing | LOOK | A MESSAGE SCRAWLED IN BLOOD ON THE WALL. IT READS 'I MAY NOT KNOW REALITY, BUT I KNOW WHAT I LIKE!' |
 
-Some things follow another without being in the table: things to be found, as two thousand
-dollars in cash, listed after the doctor's books, or a key under the pillow in Mason's apartment.
-After the things come the room's messages, numbered, which are what its puzzles say: in the
-cell, "USING THE KNIFE YOU CHIP AWAY THE THE WIRE SCREEN UNTIL FINALLY IT LOOSENS ENOUGH FOR YOU
-TO CRAWL THROUGH AND OPEN THE WINDOW", and "YOU TRAP THE BUG IN THE CUP AND SNAP ON THE LID."
-When a message is shown, and what using a thing does, isn't in the files: the puzzles are in
-`COUNT.EXE`'s code. So are the inventory's names, from DART and POUCH to DOSSIER and EXPLOSIVE
-(with a SCALPAL among them).
+Every thing is in a table but one, a door in the second hallway. Things that turn up later,
+such as the knife under Mason's food, are in the table from the start, and the code decides
+whether they're there. After the things come the room's messages,
+numbered, which are what its puzzles say: in the cell, "USING THE KNIFE YOU CHIP AWAY THE THE
+WIRE SCREEN UNTIL FINALLY IT LOOSENS ENOUGH FOR YOU TO CRAWL THROUGH AND OPEN THE WINDOW", and
+"YOU TRAP THE BUG IN THE CUP AND SNAP ON THE LID." When a message is shown, and what using a
+thing does, isn't in the files: the puzzles are in `COUNT.EXE`'s code ([out of the
+cell](#out-of-the-cell) has one). So are the inventory's names, from DART and POUCH to DOSSIER
+and EXPLOSIVE (with a SCALPAL among them).
 
 ### The conversations
 
 Talking is by approach: Mason can ask for help, hassle, be pleasant or bluff, in any order,
 and a different line comes out of each sequence. A conversation's `.TRE` has four sections,
-one for each approach he starts with, of 88 records of 8 bytes: Mason's line, the answer, the
-face the person makes as they give it (0 to 3), and a byte the game acts on
-that we haven't read the code for. Its values follow the answers: 8 comes with being thrown
-out ("THIS IS A WASTE OF TIME. GET OUT."), 0Bh with an opening ("SO ASK ME."), 5 with most of
-the deaths ("I'M AFRAID NOT SCUM, EAT LEAD!"), and a dot with the conversation going on. The
-rest of each record, and the records past each tree's end, are leftovers from the editor they
-were written in: dots, commas and digits.
+one for each approach he starts with. Each section is a tree four approaches deep, which is why
+it has 88 records: 4 + 4 + 16 + 64. The first approach is the section's record of the same
+number, 0 to 3. The second leads to one of records 4 to 7, the third to one of 8 to 23 (4 + 4
+× the second + the third), and the fourth to one of 24 to 87 (24 + 16 × the second + 4 × the
+third + the fourth). Records 0 to 3 that aren't the section's own are copies, never reached.
+
+A record is 8 bytes: Mason's line, the answer, the face the person makes as they give it (0 to
+3), and then commands, up to a dot:
+
+| Command | What it does |
+|---|---|
+| `02` and a topic | Adds the topic to ASK ABOUT ("HIS NAME IS DR. FAROUK HASHISH.") |
+| `05` and two bytes | Kills Mason, by the answers it comes with ("I'M AFRAID NOT SCUM, EAT LEAD!"); not seen in the game yet |
+| `08` | Ends the talk ("DROP DEAD YOU MURDERING SCUM.", and Mason is back in the room) |
+| `0B` | Ends that line of questioning: the game says, in red, "I DON'T KNOW MUCH MORE ALONG THESE LINES. TRY A NEW APPROACH." |
+
+A record with none goes on. The rest of each record, and the records past each tree's end, are
+leftovers from the editor they were written in: dots, commas and digits. In the game, HELP,
+HELP, HELP, HASSLE with the guard gives records 0, 4, 8 and 25, one of the sequences the
+manual's beginners' tips suggest. The last is "CONFIDENTIAL! WHO THE HELL DO YOU THINK I WOULD
+TELL. GIVE ME A BREAK HERE!", answered with "WELL... I GUESS IT WOULDN'T HURT TO TELL YOU. HIS
+NAME IS JACK QUINN." Its commands are `02 12 0B`: JACK QUINN goes on the list, the score goes
+up a point, and the line ends.
 
 Then come the lines, in three blocks: what Mason says, what he's told, and the answers to ASK
 ABOUT, each with the topic it answers and a face. The topics are 28 names in `COUNT.EXE`, from
@@ -189,9 +220,42 @@ CIA"; asked about JACK QUINN, "JACK QUINN HAD YOU PUT AWAY."
 The paper, *The American Eagle*, has a President Thomas Carroll losing his lead to L.J.
 Leeland, a former NATO commander, over terrorism, ahead of a summit on terrorism in Paris.
 
+## Out of the cell
+
+With the mouse, clicking an action and then a thing puts them on the command line, and
+clicking the thing again carries it out. A long message holds the game, the clock
+included, until the next click. The way out of the cell follows the manual's beginners' tips:
+
+1. GET the CUP by the sink.
+2. USE the CUP ON the BUG, a rhinoceros beetle on the wall by the door: "YOU TRAP THE BUG IN
+   THE CUP AND SNAP ON THE LID."
+3. TALK to the guard. His face is at the door's window for a second or two, about once a
+   minute, and he can only be talked to then.
+4. OFFER him the bug: "I HAVE BEEN LOOKING EVERYWHERE FOR A RHINOCEROS BEETLE! I'LL HAVE SOME
+   FOOD SENT TO YOU RIGHT AWAY." When Mason leaves the talk, a tray comes in under the door,
+   and under it is a knife.
+5. GET the KNIFE, USE it ON the WINDOW on the right, which chips its wire screen away, GET the
+   locker KEY at the foot of the bed, and GO TO the WINDOW.
+
+Mason climbs out onto a ledge, high over the water, with 20 of the 515 points.
+
+![The guard, and Mason out on the ledge](images/countdown-escape.png)
+
+The knife was the hard part, and the code shows why. USE with the knife (item 5) on thing 12,
+the window, says "YOU'RE NOT CLOSE ENOUGH TO DO THAT" unless Mason is at 180 or more across,
+and between 44 and 64 down, a little out from the back wall. The sandbags under the window keep
+him from going farther right along the wall itself. And the mouse won't take him there: it
+walks him the longer way first, then the other, and stops for good at the first line in the
+way. Sent toward the window from the back of the room, he walks right along the back wall
+until the floor's corner stops him, and never comes forward. The arrow keys walk him one step
+at a time, so a little down and then right gets him there. Around it, the code checks the
+other USEs the same way, the item and the thing by number, and keeps a flag for each change in
+the cell: the bug caught, the key taken, the screen chipped.
+
 ## Still to look at
 
 - The cells (`.GPH`) and the animations (`.ANM`).
-- The game's logic in `COUNT.EXE`: which records follow which approaches, what the byte the
-  game acts on means, and the puzzles that pick a room's messages.
-- The game itself, from the cell on.
+- The rest of the puzzles in `COUNT.EXE`, room by room, and how a conversation opens ASK ABOUT
+  and OFFER.
+- Which rooms take a `.COL` for all their colors, and where the game picks it.
+- The game itself, from the ledge on.
