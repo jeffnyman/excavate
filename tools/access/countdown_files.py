@@ -4,6 +4,8 @@
     python tools/access/countdown_files.py <the game's folder> text [<file>]        the text in them
     python tools/access/countdown_files.py <the game's folder> pictures <folder>    the rooms and pictures, as files
     python tools/access/countdown_files.py <the game's folder> sounds <folder>      the RealSound recordings, as WAV files
+    python tools/access/countdown_files.py <the game's folder> room <file>          a room's things, what each action says, and its messages
+    python tools/access/countdown_files.py <the game's folder> talk <file>          a conversation, by approach, and the answers to ASK ABOUT
 
 Each .CNT file is a count of parts, a table of where each starts, and the parts. Most parts are
 the developers' own files, packed with LZW, each with a header of 122 bytes that starts with
@@ -142,10 +144,15 @@ def list_text(folder: str, only: str | None) -> None:
 TILES_AT, ROOM_COLORS, TILE = 400, 128, 16
 
 
+def color(levels: bytes, at: int) -> tuple[int, int, int]:
+    """A palette entry: three 6-bit levels, as 8-bit ones."""
+    return levels[at] * 255 // 63, levels[at + 1] * 255 // 63, levels[at + 2] * 255 // 63
+
+
 def room(data: bytes) -> tuple[int, int, list[int], list[tuple[int, int, int]]]:
     """A room's picture: its width and height in pixels, its pixels and its palette."""
     columns, rows, count = data[0], data[1], data[2]
-    palette = [tuple(level * 255 // 63 for level in data[16 + 3 * i:19 + 3 * i]) for i in range(ROOM_COLORS)]
+    palette = [color(data, 16 + 3 * i) for i in range(ROOM_COLORS)]
     palette += [(128, 128, 128)] * (256 - ROOM_COLORS)
     width, height = columns * TILE, rows * TILE
     pixels = [0] * (width * height)
@@ -165,9 +172,9 @@ def likeliest(width: int, pixels: list[int], own: list[tuple[int, int, int]], ot
     a few use a .COL for everything. This picks the one the picture looks smoothest in: a wrong
     palette shows as speckle, neighboring pixels far apart in color for how far the picture's
     colors spread."""
-    candidates = [own]
+    candidates: list[list[tuple[int, int, int]]] = [own]
     for other in others:
-        full = [tuple(level * 255 // 63 for level in other.data[3 * i:3 * i + 3]) for i in range(256)]
+        full = [color(other.data, 3 * i) for i in range(256)]
         candidates += [own[:ROOM_COLORS] + full[ROOM_COLORS:], full]
 
     def roughness(palette: list[tuple[int, int, int]]) -> float:
@@ -221,6 +228,119 @@ def write_pictures(folder: str, out: str) -> None:
     print(f"Wrote {written} pictures to {out}.")
 
 
+# --- the rooms' text --------------------------------------------------------------------
+
+ACTIONS = ["LOOK", "OPEN", "MOVE", "GET", "USE", "GO TO", "TALK", "TASTE", "TRAVEL"]
+
+
+def zero_ended(data: bytes, at: int) -> tuple[str, int]:
+    end = data.index(0, at)
+    return data[at:end].decode("latin-1"), end + 1
+
+
+def room_text(data: bytes) -> tuple[list[tuple[str, bool, list[tuple[str, str]]]], list[str]]:
+    """A room's things and its messages (.DAT). It starts with a word, where the messages
+    start, and a table of where each thing in the room starts. A thing is its name, then for each
+    action that has something to say, the action's number in the bar (0 for LOOK to 8 for
+    TRAVEL) and the text, and FFh to end. Some things follow another without being in the table,
+    things to be found there: they're marked. The messages are what the room's puzzles say, which
+    the game's code picks by number."""
+    messages_at = struct.unpack_from("<H", data, 0)[0]
+    first = struct.unpack_from("<H", data, 2)[0]
+    listed = set(struct.unpack_from(f"<{(first - 2) // 2}H", data, 2))
+    found = []
+    at = first
+    while at < messages_at:
+        start = at
+        name, at = zero_ended(data, at)
+        entries = []
+        while at < messages_at and data[at] != 0xFF:
+            action = data[at]
+            text, at = zero_ended(data, at + 1)
+            entries.append((ACTIONS[action] if action < len(ACTIONS) else f"({action})", text))
+        at += 1
+        found.append((name, start in listed, entries))
+    messages = [message.decode("latin-1") for message in data[messages_at:].split(b"\0")]
+    if messages and messages[-1] == "":
+        messages.pop()
+    return found, messages
+
+
+def list_room(folder: str, name: str) -> None:
+    for part in parts(folder, name if name.upper().endswith(".CNT") else name + ".CNT"):
+        if kind(part) != "DAT":
+            continue
+        things_, messages = room_text(part.data)
+        for thing, listed, entries in things_:
+            print(thing + ("" if listed else "  (not in the room's table: found there)"))
+            for action, text in entries:
+                print(f"    {action:6} {text}")
+        print("Messages")
+        for number, message in enumerate(messages):
+            print(f"    {number:2} {message}")
+
+
+# --- the conversations --------------------------------------------------------------------
+
+# The names Mason can ask about, as COUNT.EXE lists them, in order
+TOPICS = ["ACCIDENT", "MASON POWERS", "FONTAINE", "GENERAL LEELAND", "NIRVA TOOMISH", "FRANK MCBAIN",
+          "FAROUK HASHISH", "STORMBRINGER", "THUNDERBOLT", "DOLPHIN", "BLACK DECEMBER", "GOLDEN DESIRE",
+          "SCORPIO", "LISA LOOMIS", "BUZZ BREZHNEV", "BARNEY SACNUSSEN", "EARHARDT FLEISCHER",
+          "MICHAEL KIRKLAND", "JACK QUINN", "CARLOS RAMIREZ", "JACKAL", "GINA", "RACHEL AKURE", "SANCTUARY",
+          "COMPANY", "HAKEEM ABABASH", "LEONARD SPALDING", "DEC. MANIFESTO"]
+APPROACHES = ["HELP", "HASSLE", "PLEASANT", "BLUFF"]
+SECTION, RECORD = 0x2C0, 8
+LINES_AT = 4 * SECTION
+
+
+def conversation(data: bytes) -> tuple[list[list[tuple[int, int, int, int]]], list[str], list[str], list[tuple[int, int, str]]]:
+    """A conversation (.TRE): four sections of 88 records, one for each approach Mason starts
+    with, then three blocks, each a word for its size and then its text: what Mason says, what
+    he's told, and the answers to ASK ABOUT. A record is 8 bytes: Mason's line, the answer, the
+    face the person makes (0 to 3), and a byte the game acts on, which we haven't read the code
+    for; the rest is left over from an editor, and so are the records whose face isn't 0 to 3.
+    An answer to ASK ABOUT is the topic's number, from 0 for ACCIDENT, the face, and the text."""
+    sections = []
+    for section in range(4):
+        records = []
+        for number in range(SECTION // RECORD):
+            record = data[section * SECTION + number * RECORD:section * SECTION + (number + 1) * RECORD]
+            records.append((record[0], record[1], record[2], record[3]))
+        sections.append(records)
+    blocks, at = [], LINES_AT
+    for _ in range(3):
+        size = struct.unpack_from("<H", data, at)[0]
+        blocks.append(data[at + 2:at + 2 + size])
+        at += 2 + size
+    said = [line.decode("latin-1") for line in blocks[0].split(b"\0")[:-1]]
+    told = [line.decode("latin-1") for line in blocks[1].split(b"\0")[:-1]]
+    answers, at = [], 0
+    while at + 2 < len(blocks[2]):
+        topic, face = blocks[2][at], blocks[2][at + 1]
+        text, at = zero_ended(blocks[2], at + 2)
+        answers.append((topic, face, re.sub(r"^[^A-Z0-9'\"(]+", "", text)))
+    return sections, said, told, answers
+
+
+def list_talk(folder: str, name: str) -> None:
+    for part in parts(folder, name if name.upper().endswith(".CNT") else name + ".CNT"):
+        if kind(part) != "TRE":
+            continue
+        sections, said, told, answers = conversation(part.data)
+        for approach, records in zip(APPROACHES, sections):
+            print(f"Starting with {approach}")
+            for number, (line, answer, face, act) in enumerate(records):
+                if face > 3 or line >= len(said) or answer >= len(told):
+                    continue
+                print(f"    {number:2}  face {face}, {act:02X}h")
+                print(f"        MASON: {said[line]}")
+                print(f"        {told[answer]}")
+        print("Asked about")
+        for topic, face, text in answers:
+            if text.strip():
+                print(f"    {TOPICS[topic] if topic < len(TOPICS) else topic}, face {face}: {text}")
+
+
 # --- the sounds --------------------------------------------------------------------------
 
 # A RealSound recording (.RS): 32 bytes, STEVE (for Steve Witzel, who wrote RealSound), how many
@@ -264,6 +384,10 @@ def main(arguments: list[str]) -> None:
         write_pictures(arguments[0], arguments[2])
     elif len(arguments) >= 3 and arguments[1] == "sounds":
         write_sounds(arguments[0], arguments[2])
+    elif len(arguments) >= 3 and arguments[1] == "room":
+        list_room(arguments[0], arguments[2])
+    elif len(arguments) >= 3 and arguments[1] == "talk":
+        list_talk(arguments[0], arguments[2])
     else:
         raise SystemExit(__doc__)
 

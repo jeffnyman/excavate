@@ -143,6 +143,8 @@ python tools/access/countdown_files.py <the game's folder> parts
 python tools/access/countdown_files.py <the game's folder> text [<file>]
 python tools/access/countdown_files.py <the game's folder> pictures <folder>
 python tools/access/countdown_files.py <the game's folder> sounds <folder>
+python tools/access/countdown_files.py <the game's folder> room <file>
+python tools/access/countdown_files.py <the game's folder> talk <file>
 ```
 
 - **`parts`** lists every part of every file: its number, size unpacked, and its name, date
@@ -152,3 +154,8 @@ python tools/access/countdown_files.py <the game's folder> sounds <folder>
   the GIF pictures as they are.
 - **`sounds`** writes each RealSound recording as a WAV file, the share of each sample the
   speaker is on.
+- **`room`** prints a room's things, what each action says about each, and the room's numbered
+  messages, from a file's `.DAT` (`MASONCEL` for the cell).
+- **`talk`** prints a conversation from a file's `.TRE` (`LISA`, `AGENT`): its records under the
+  approach they start with, each with Mason's line, the answer, the face and the byte the game
+  acts on; then the answers to ASK ABOUT, by topic.

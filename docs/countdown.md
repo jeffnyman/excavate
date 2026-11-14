@@ -143,17 +143,55 @@ themselves: in Excavate, the 32,640 counts the game loaded into the timer for th
 16,320 samples of `SCREAM5.RS`, each twice, exactly. There are 42 different recordings, among
 them `CRZYLAF`, `LAUGH2`, `SNORE`, six `PARROT`s, `EXPLODE`, `DIEPIG`, `IKNOW` and `LOVEYOU`.
 
-### The text
+### The rooms' text
 
-All the text is plain once unpacked: what each thing in a room is and what happens when it's
-looked at, opened or moved ("A TURKISH BIBLE. ALL THE BOOKS ARE IN TURKISH. THE BOOKS ARE
-COVERED IN DUST."), what Mason can say in each conversation and what's said back, and the
-newspaper's stories. The paper, *The American Eagle*, has a President Thomas Carroll losing his
-lead to L.J. Leeland, a former NATO commander, over terrorism, ahead of a summit on terrorism in
-Paris.
+A room's `.DAT` is a table of the things in it, each with its name and what each action says
+about it: the action's place in the bar (0 for LOOK, 1 OPEN, 2 MOVE, 3 GET, 5 GO TO, 6 TALK, 7
+TASTE) and the text. USE, 4, is in none of them. The cell, for one:
+
+| Thing | Action | Text |
+|---|---|---|
+| Medical chart | LOOK | THE CHARTS READS: PATIENT NAME: MASON POWERS ACCIDENT VICTIM, SEVERE CONCUSSION, MULTIPLE LACERATIONS AND CONTUSIONS. SCHEDULED FOR EXPLORATORY SURGERY- DR. FAROUK HASHISH. |
+| Cross | TASTE | IS THIS SOME NEW RELIGIOUS RITUAL? |
+| Radiator | TALK | PERHAPS THIS SHOULD BE YOUR PERMANENT RESIDENCE. |
+| Food | TALK | YOU SAY SOMETHING TO THE FOOD AND FOR A MOMENT YOU THINK YOU HEAR A RESPONSE. |
+| Writing | LOOK | A MESSAGE SCRAWLED IN BLOOD ON THE WALL. IT READS 'I MAY NOT KNOW REALITY, BUT I KNOW WHAT I LIKE!' |
+
+Some things follow another without being in the table: things to be found, as two thousand
+dollars in cash, listed after the doctor's books, or a key under the pillow in Mason's apartment.
+After the things come the room's messages, numbered, which are what its puzzles say: in the
+cell, "USING THE KNIFE YOU CHIP AWAY THE THE WIRE SCREEN UNTIL FINALLY IT LOOSENS ENOUGH FOR YOU
+TO CRAWL THROUGH AND OPEN THE WINDOW", and "YOU TRAP THE BUG IN THE CUP AND SNAP ON THE LID."
+When a message is shown, and what using a thing does, isn't in the files: the puzzles are in
+`COUNT.EXE`'s code. So are the inventory's names, from DART and POUCH to DOSSIER and EXPLOSIVE
+(with a SCALPAL among them).
+
+### The conversations
+
+Talking is by approach: Mason can ask for help, hassle, be pleasant or bluff, in any order,
+and a different line comes out of each sequence. A conversation's `.TRE` has four sections,
+one for each approach he starts with, of 88 records of 8 bytes: Mason's line, the answer, the
+face the person makes as they give it (0 to 3), and a byte the game acts on
+that we haven't read the code for. Its values follow the answers: 8 comes with being thrown
+out ("THIS IS A WASTE OF TIME. GET OUT."), 0Bh with an opening ("SO ASK ME."), 5 with most of
+the deaths ("I'M AFRAID NOT SCUM, EAT LEAD!"), and a dot with the conversation going on. The
+rest of each record, and the records past each tree's end, are leftovers from the editor they
+were written in: dots, commas and digits.
+
+Then come the lines, in three blocks: what Mason says, what he's told, and the answers to ASK
+ABOUT, each with the topic it answers and a face. The topics are 28 names in `COUNT.EXE`, from
+ACCIDENT and MASON POWERS to THUNDERBOLT, BLACK DECEMBER and the DEC. MANIFESTO. Asked about
+STORMBRINGER, Lisa Loomis says "THAT'S THE NAME OF MCBAIN'S 'MYTHICAL' MOLE WORKING INSIDE THE
+CIA"; asked about JACK QUINN, "JACK QUINN HAD YOU PUT AWAY."
+
+### The newspaper
+
+The paper, *The American Eagle*, has a President Thomas Carroll losing his lead to L.J.
+Leeland, a former NATO commander, over terrorism, ahead of a summit on terrorism in Paris.
 
 ## Still to look at
 
-- The cells (`.GPH`), the animations (`.ANM`), and how the rooms' text (`.DAT`) and the
-  conversations (`.TRE`) are laid out, which would give the game's logic.
+- The cells (`.GPH`) and the animations (`.ANM`).
+- The game's logic in `COUNT.EXE`: which records follow which approaches, what the byte the
+  game acts on means, and the puzzles that pick a room's messages.
 - The game itself, from the cell on.
