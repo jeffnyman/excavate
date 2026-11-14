@@ -291,9 +291,11 @@ That's where the puzzles are, and reading them is quicker than guessing.
 The ledge is 768 pixels wide and scrolls as Mason walks it. Of its windows, the fourth "HAS
 NOT BEEN LATCHED", and opens into room 16, a cell whose door opens onto the floor's hallway.
 The hallways are maps seen from above, a floor each, with stairs between the floors at their
-top left. Guards walk them, and a guard that comes within 8 pixels of Mason, across and down,
-catches him: "AFTER BEING CAPTURED BY THE HALL GUARDS YOU RECEIVE A LOBOTOMY. YOU SPEND YOUR
-REMAINING YEARS TRYING TO FOCUS ON A SINGLE OBJECT." And the game starts again.
+top left. Guards walk them, six to a floor, and a guard that comes on Mason catches him:
+"AFTER BEING CAPTURED BY THE HALL GUARDS YOU RECEIVE A LOBOTOMY. YOU SPEND YOUR REMAINING YEARS
+TRYING TO FOCUS ON A SINGLE OBJECT." And the game starts again. Just when a guard catches him
+we haven't read: they've passed a few pixels from him, walking the other way, and not; one
+caught him from far down a corridor, walking toward him.
 
 Down the left corridor is room 11, Barney Sacnussen's cell: his self-portrait on the wall, and
 behind it, written on the wall, "AT NIGHT WHILE THEY SLEEP; PASSED THE FIRE AND INTO THE WALL
@@ -305,6 +307,35 @@ the patched hole in the far wall, used from close to it. But going through needs
 8, behind one of the doors on the floor below the cells.
 
 ![The furnace room](images/countdown-furnace.png)
+
+Rooms 6 and 8 are two operating rooms, both drawn from `SURG.CNT`. In room 6 a scalpel is
+stuck in the dart board, and GET pulls it out ("IT LOOKS QUITE THREATENING"; the inventory
+calls it a SCALPAL). In room 8, opening the box on the floor shows the flashlight.
+
+And there's a clock on all of it. Climbing out of the window starts a timer of 36,000 of the
+game's sixtieths of a second, ten minutes, and going back into the cell stops it. When it runs
+out: "THE GUARD OUTSIDE YOUR DOOR FINALLY NOTICED YOU WHERE MISSING AND SOUNDED THE ALARM.
+YOU RECEIVE A LOBOTOMY THE NEXT MORNING AND SPEND YOUR REMAINING YEARS TRYING TO FOCUS ON A
+SINGLE OBJECT." So the way down has to be known before it's taken.
+
+Through the hole are the catacombs, room 3, a maze of tunnels in the rock seen from above, 672
+by 512 pixels through a window of about 130 by 100, with stone coffins and pools of stagnant
+water. The way across, worked out from the room's 370 floor lines, is about 2,200 pixels of
+walking, a minute and a half. We'd spent too long getting there to have it, so for looking
+further we gave the timer back its ten minutes in memory, as a debugger would.
+
+The far side is a wine cellar, room 2. A dead man sits against the crates, his head covered in
+blood, and beside him, written in blood, the initials B.S. A plaque says the monastery was
+founded in MCDXXXIII. Another is too dirty to read, and a rag found there cleans it: "SINCE WE
+FOUNDED THIS PLACE SO CLOSE TO THE SEA WE'VE NEEDED A WAY TO ESCAPE QUICKLY. FOUR BOTTLES OF
+WINE MOVED IN ORDER BY THEE OPENS A PASSAGE WHICH SETS YOU FREE." The rack holds sixteen
+bottles, four rows of four, and the code wants, in order, the first bottle of the first row,
+the fourth of the second, the third of the third and the third of the fourth: 1, 4, 3, 3, the
+year. Any other bottle starts the count again. "YOU HEAR A LOUD CRACK AS THE FAR WALL SLIDES
+OPEN, REVEALING A DOORWAY", and it opens on the foot of a cliff over the sea, room 25. Climbing
+it takes what Mason doesn't have yet: shoes that grip, and a grappling hook and rope.
+
+![The wine cellar, and the dead man](images/countdown-cellar.png)
 
 ### A sound past the end of the list
 
@@ -327,5 +358,6 @@ IBM's do.
 - The rest of the puzzles in `COUNT.EXE`, room by room, and how a conversation opens ASK ABOUT
   and OFFER.
 - Which rooms take a `.COL` for all their colors, and where the game picks it.
-- The light in room 8, and the way on from the furnace room.
-- The guards: how they walk, so a test can get Mason past them every time.
+- The climbing gear for the cliff: likely in the lockers, which Mason's locker key opens.
+- The guards: how they walk and when they catch Mason, so a test can get him past them every
+  time, and within the ten minutes.
