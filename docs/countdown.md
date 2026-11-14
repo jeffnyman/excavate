@@ -291,11 +291,9 @@ That's where the puzzles are, and reading them is quicker than guessing.
 The ledge is 768 pixels wide and scrolls as Mason walks it. Of its windows, the fourth "HAS
 NOT BEEN LATCHED", and opens into room 16, a cell whose door opens onto the floor's hallway.
 The hallways are maps seen from above, a floor each, with stairs between the floors at their
-top left. Guards walk them, six to a floor, and a guard that comes on Mason catches him:
-"AFTER BEING CAPTURED BY THE HALL GUARDS YOU RECEIVE A LOBOTOMY. YOU SPEND YOUR REMAINING YEARS
-TRYING TO FOCUS ON A SINGLE OBJECT." And the game starts again. Just when a guard catches him
-we haven't read: they've passed a few pixels from him, walking the other way, and not; one
-caught him from far down a corridor, walking toward him.
+top left. A guard walks each, and if he catches Mason: "AFTER BEING CAPTURED BY THE HALL GUARDS
+YOU RECEIVE A LOBOTOMY. YOU SPEND YOUR REMAINING YEARS TRYING TO FOCUS ON A SINGLE OBJECT." And
+the game starts again. How the guards walk and see is in [getting away](#getting-away).
 
 Down the left corridor is room 11, Barney Sacnussen's cell: his self-portrait on the wall, and
 behind it, written on the wall, "AT NIGHT WHILE THEY SLEEP; PASSED THE FIRE AND INTO THE WALL
@@ -321,8 +319,9 @@ SINGLE OBJECT." So the way down has to be known before it's taken.
 Through the hole are the catacombs, room 3, a maze of tunnels in the rock seen from above, 672
 by 512 pixels through a window of about 130 by 100, with stone coffins and pools of stagnant
 water. The way across, worked out from the room's 370 floor lines, is about 2,200 pixels of
-walking, a minute and a half. We'd spent too long getting there to have it, so for looking
-further we gave the timer back its ten minutes in memory, as a debugger would.
+walking, a minute and a half. The first time through, we'd spent too long getting there to
+have it, so for looking further we gave the timer back its ten minutes in memory, as a debugger
+would. The way out below was played honestly, within the time.
 
 The far side is a wine cellar, room 2. A dead man sits against the crates, his head covered in
 blood, and beside him, written in blood, the initials B.S. A plaque says the monastery was
@@ -336,6 +335,41 @@ OPEN, REVEALING A DOORWAY", and it opens on the foot of a cliff over the sea, ro
 it takes what Mason doesn't have yet: shoes that grip, and a grappling hook and rope.
 
 ![The wine cellar, and the dead man](images/countdown-cellar.png)
+
+## Getting away
+
+Everything for the cliff is back up in the Sanctuary. The locker room, room 22, and the storage
+room, room 21, are off the hallway of the floor above the cells, room 23, up the stairs. In the
+locker room, moving the towel on the bench shows another locker key, which opens the locker with
+the mountaineering boots ("WHICH COINCIDENTLY, ARE YOUR SIZE"). Mason's own locker key, from the
+foot of his cell's bed, opens the other, with his bag: his wallet, an I.D. card with his name and
+address, three dollars, and the address of Frank McBain. In the storage room, a crowbar pries
+open a box "LABELED ACME MOUNTAINEERING SUPPLIES", with a stainless steel grappling hook and
+rope inside. And the car the cliff leads to wants keys: the key ring on the desk in the doctor's
+office, room 4, off the floor below.
+
+That's too much for ten minutes, but going back into the cell stops the clock, so it takes more
+than one trip. Ours took three, each coming back by the ledge: the homemade key, the boots and
+the hook; then the flashlight and the car keys; and the last went straight down: the landing, the furnace room, the
+pick, the catacombs, the cellar's bottles, the cliff. At the foot of it, in the boots, GO TO the
+wall, standing below the notches, and Mason climbs; near the top, USE the hook on the overhang: "YOU
+TOSS THE GRAPPLING HOOK UPWARDS. THE HOOK CATCH THE ROCKLEDGE AND WITH GREAT EFFORT YOU CLIMB TO
+THE TOP." The top is the front of the Sanctuary, room 26, with two cars, and the keys start
+the 1983 Thunderbird: "ESCAPED AT LAST! I'VE GOT TO GET A GRIP ON THE STEERING WHEEL AND WHAT'S
+GOING ON HERE. THEY SAY I MURDERED FRANK MCBAIN." Once he's away, the clock no longer matters.
+Mason has 95 of the 515 points, and it's 25 minutes past midnight.
+
+![Outside the Sanctuary, and away](images/countdown-escaped.png)
+
+The guards made it hard until their code was read. Each floor's hallway has one guard who can
+catch Mason, the only one the code checks there, and he walks a fixed script, round and round:
+a list of steps, each a direction and the place to walk to, or a pause. He walks on while Mason
+is in a room. He catches Mason if he comes within 16 pixels of him both ways, or if Mason is
+ahead of him, within 16 pixels to either side of his path: up to 96 pixels when he faces up or
+down, and 192 when he faces left or right. Behind him is safe, and so is 17 pixels to his side.
+So the hallways come down to timing: wait in a room, or at the stairs, until his back is turned,
+then go. The scripts loop in about a minute on the floor above the cells, and nearer two on
+the others.
 
 ### A sound past the end of the list
 
@@ -358,6 +392,5 @@ IBM's do.
 - The rest of the puzzles in `COUNT.EXE`, room by room, and how a conversation opens ASK ABOUT
   and OFFER.
 - Which rooms take a `.COL` for all their colors, and where the game picks it.
-- The climbing gear for the cliff: likely in the lockers, which Mason's locker key opens.
-- The guards: how they walk and when they catch Mason, so a test can get him past them every
-  time, and within the ten minutes.
+- A test that plays the whole escape, timing the guards from their scripts.
+- The rest of the game, from the travel screen on.
