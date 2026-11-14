@@ -50,8 +50,44 @@ public class SoundTests
     {
         // the gate off holds counter 2's output high, so the data bit alone moves the cone, once
         var mix = Speaker(1193, 0x02);
-        Assert.True(mix[0] > 3000);
+        Assert.True(mix.Take(20).Max() > 3000);
         Assert.True(Math.Abs(mix[^1]) < 100, $"still at {mix[^1]}");
+    }
+
+    [Fact]
+    public void Pulses_of_varying_width_play_as_the_sound_they_carry()
+    {
+        // as Access's RealSound plays sampled sound: counter 2 in mode 0, reloaded 16,572 times a
+        // second, every 72 ticks, the speaker on for what's left of the 72 after the count; here
+        // the counts carry a 500 Hz sine, for a tenth of a second
+        var timer = new IntervalTimer();
+        var speaker = new PcSpeaker(timer) { PortB = 0x03 };
+        timer.Gate2 = true;
+        timer.Write(0x43, 0x90); // counter 2, low byte only, mode 0
+        const double TicksPerSample = IntervalTimer.Frequency / Machine.SampleRate;
+        var mix = new List<int>();
+        long made = 0;
+        for (long tick = 0; tick < IntervalTimer.Frequency / 10; tick += 72)
+        {
+            // the sound is made up to the last whole sample, the speaker settled, then the count
+            // changed, as the machine does on each write
+            long due = (long)(tick / TicksPerSample);
+            var frames = new int[2 * (due - made)];
+            speaker.Render(frames);
+            mix.AddRange(frames);
+            made = due;
+            timer.Now = tick;
+            speaker.Settle(tick);
+            timer.Write(0x42, (byte)(36 + (30 * Math.Sin(2 * Math.PI * 500 * tick / IntervalTimer.Frequency))));
+        }
+
+        // the left channel, past the filters' first moments
+        var left = mix.Where((_, i) => i % 2 == 0).Skip(400).Select(v => (double)v).ToArray();
+        double Power(double hz) => Math.Pow(left.Select((v, i) => v * Math.Cos(2 * Math.PI * hz * i / Machine.SampleRate)).Sum(), 2)
+            + Math.Pow(left.Select((v, i) => v * Math.Sin(2 * Math.PI * hz * i / Machine.SampleRate)).Sum(), 2);
+
+        // the 500 Hz comes through far stronger than the 16,572 Hz the pulses come at
+        Assert.True(Power(500) > 20 * Power(16_572), $"500 Hz: {Power(500):E2}, 16,572 Hz: {Power(16_572):E2}");
     }
 
     [Fact]

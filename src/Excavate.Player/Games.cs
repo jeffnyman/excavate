@@ -150,7 +150,7 @@ internal static class Games
         // The Omnicron Conspiracy: its loader, not the OMNICRON.COM eXoDOS adds beside it,
         // which only sends DOS's keyboard calls to INT 16h, as Excavate's DOS does anyway
         new("omnicron", "The Omnicron Conspiracy", 1989, ["OMNICRON.EXE"], "OMNICRON.EXE", At, "starts on the MCGA, EGA or CGA; played to Cron and the Blackstar, not yet through"),
-        new("countdown", "Countdown", 1990, ["COUNT.EXE"], "COUNT.EXE", At, Untried),
+        new("countdown", "Countdown", 1990, ["COUNT.EXE"], "COUNT.EXE", At, "starts, with RealSound on the speaker, to its first room; not yet played through"),
         new("orion", "The Orion Conspiracy", 1995, ["ORION.BAT"], "ORION.BAT", Fast, Untried),
     ];
 

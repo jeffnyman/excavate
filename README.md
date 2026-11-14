@@ -18,7 +18,7 @@ the time. Those notes are in [docs](docs/), a game at a time.
 | *The President Is Missing* | 1988 | `president` | Logs on and shows its files, on the EGA or CGA; [notes](docs/president.md). Its setup is `excavate president SU.EXE` |
 | *Presumed Guilty* | 1989 | `guilty` | Starts, shows its menus, messages and DNA analysis on the EGA or CGA, and logs off; [notes](docs/guilty.md). Its setup is `excavate guilty SU.EXE` |
 | *The Omnicron Conspiracy* | 1989 | `omnicron` | Starts on the MCGA, EGA or CGA, through its loader and its music player; played from the first room to Cron and the Blackstar; its rooms, pictures and text read from its files; [notes](docs/omnicron.md) |
-| *Countdown* | 1990 | `countdown` | Not yet tried |
+| *Countdown* | 1990 | `countdown` | Starts, through its introduction in 256 colors with RealSound's scream on the speaker, to its first room; [notes](docs/countdown.md) |
 | *The Orion Conspiracy* | 1995 | `orion` | Not yet tried |
 
 None of the games are included: Excavate plays copies you have. Each game runs its own program,

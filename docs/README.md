@@ -25,3 +25,6 @@ so that its own program runs as it was shipped.
   graphics library and runs the game, a game that runs its music player, a keyboard DOS has to
   read through the game's own INT 16h, and an EGA mode drawn on its second page. Its files:
   pictures packed with byte pairs, 252 rooms in the game's code, and all its text.
+- [Countdown](countdown.md): Access Software, 1990. An interactive movie in the VGA's 256
+  colors that keeps its own clock from midnight, and RealSound, recorded sound played on the
+  PC's speaker by the length of its pulses, which Excavate's speaker had to learn to count.

@@ -504,10 +504,12 @@ public sealed partial class Machine : ICpuBus
             case >= 0x40 and <= 0x43:
                 // counter 2 is the speaker's tone: the sound so far is made before it changes
                 UpdateSound();
+                _speaker.Settle(_timer.Now);
                 _timer.Write(port, value);
                 break;
             case 0x61:
                 UpdateSound();
+                _speaker.Settle(_timer.Now);
                 _portB = value;
                 _timer.Gate2 = (value & 1) != 0;
                 _speaker.PortB = value;
