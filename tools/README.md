@@ -130,3 +130,25 @@ python tools/firststar/omnicron_files.py <the game's folder> pictures <folder>
   game's colors: each room's picture, the full screens, and each sprite file as a sheet of its
   frames. A sprite's frames are as the file has them, before the game changes any of a
   character's colors.
+
+## Countdown
+
+`access/countdown_files.py` reads *Countdown*'s `.CNT` files: the parts packed into them, with
+the names, folders and dates they had on the developers' disks; the text in them; the rooms'
+pictures; the GIF pictures; and the RealSound recordings. How they're packed is in
+[docs/countdown.md](../docs/countdown.md#the-files).
+
+```
+python tools/access/countdown_files.py <the game's folder> parts
+python tools/access/countdown_files.py <the game's folder> text [<file>]
+python tools/access/countdown_files.py <the game's folder> pictures <folder>
+python tools/access/countdown_files.py <the game's folder> sounds <folder>
+```
+
+- **`parts`** lists every part of every file: its number, size unpacked, and its name, date
+  and folder, or what kind of part it is when it's stored as it is.
+- **`text`** prints the text in each part, or in one file's.
+- **`pictures`** writes each room's picture, its whole map, as a PNG file twice its size, and
+  the GIF pictures as they are.
+- **`sounds`** writes each RealSound recording as a WAV file, the share of each sample the
+  speaker is on.
